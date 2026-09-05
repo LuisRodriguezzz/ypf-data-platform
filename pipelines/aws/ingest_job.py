@@ -46,7 +46,13 @@ def instalar_paquete(uri: str) -> None:
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # `force=True`: el runtime de Glue ya configuró el logging raíz antes de que corra este
+    # script y sin eso basicConfig no hace nada y las líneas INFO nunca llegan a CloudWatch.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        force=True,
+    )
 
     # `--only` es opcional y getResolvedOptions falla si pide un argumento que no vino.
     opcionales = ["only"] if "--only" in sys.argv else []

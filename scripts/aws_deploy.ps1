@@ -22,7 +22,12 @@ uv build --wheel --project $repo
 Invoke-O-Fallar "uv build"
 $wheel = Get-ChildItem (Join-Path $repo "dist\*.whl") | Sort-Object LastWriteTime | Select-Object -Last 1
 
-$bucket = terraform -chdir="$terraform" output -raw lakehouse_bucket
+# Terraform instalado con winget puede no estar en el PATH de una sesion recien abierta.
+$tf = (Get-Command terraform -ErrorAction SilentlyContinue).Source
+if (-not $tf) {
+  $tf = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages" -Recurse -Filter terraform.exe -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+}
+$bucket = & $tf -chdir="$terraform" output -raw lakehouse_bucket
 Invoke-O-Fallar "terraform output"
 $destino = "s3://$bucket/artifacts"
 
