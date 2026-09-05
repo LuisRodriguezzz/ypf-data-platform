@@ -1,7 +1,6 @@
 # YPF Data Platform
 
-<!-- Reemplazar <OWNER>/<REPO> por el owner/repo real al subir el repo a GitHub -->
-![CI](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/LuisRodriguezzz/ypf-data-platform/actions/workflows/ci.yml/badge.svg)
 
 Plataforma de datos end-to-end del upstream argentino sobre datos públicos reales (Secretaría de Energía, 2006-2026) con telemetría real de pozos (Petrobras 3W) y detección de anomalías. Proyecto portfolio orientado a producción: lakehouse medallion en Iceberg, streaming con Kafka y Spark, calidad de datos con contratos, orquestación con Airflow, IaC con Terraform y CI en GitHub Actions.
 
