@@ -6,4 +6,6 @@ Plataforma de datos end-to-end del upstream argentino sobre datos públicos real
 
 Estado: semana 0 completada (ver `docs/semana-0-derisking.md`). Ingesta, bronze y silver corriendo, orquestados por Airflow (`orchestration/README.md`). Decisiones de arquitectura en `docs/adr/`.
 
+Un stack, dos destinos (ADR 0001): el mismo código de `pipelines/` corre en local sobre Docker Compose (MinIO, Iceberg REST, Spark, Airflow) y en AWS sobre S3, Glue Data Catalog, Glue jobs, Step Functions y Athena (`infra/terraform/README.md`). Lo único que cambia entre destinos es la configuración.
+
 Trazabilidad de datos: cada tabla declara `data_origin` con valores `real`, `simulated` o `derived`.

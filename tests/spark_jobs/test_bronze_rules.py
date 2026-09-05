@@ -8,13 +8,13 @@ from pipelines.spark_jobs.bronze_rules import (
     LandedFile,
     clean_column_name,
     dataset_names,
+    landing_uri,
     latest_ok_query,
     load_table_rules,
     namespace_of,
     pending_files,
     postgres_jdbc,
     resources_by_table,
-    s3a_uri,
     table_for_resource,
     unmapped_resources,
 )
@@ -38,12 +38,17 @@ def landed(resource_id: str, sha256: str, resource_name: str | None = None) -> L
     )
 
 
-def test_s3a_uri_arma_la_ruta_del_objeto():
-    assert s3a_uri("landing", "energia/x.csv") == "s3a://landing/energia/x.csv"
+def test_landing_uri_arma_la_ruta_del_objeto():
+    assert landing_uri("landing", "energia/x.csv") == "s3a://landing/energia/x.csv"
 
 
-def test_s3a_uri_no_duplica_la_barra_inicial():
-    assert s3a_uri("landing", "/energia/x.csv") == "s3a://landing/energia/x.csv"
+def test_landing_uri_no_duplica_la_barra_inicial():
+    assert landing_uri("landing", "/energia/x.csv") == "s3a://landing/energia/x.csv"
+
+
+def test_landing_uri_usa_el_esquema_del_destino():
+    # En Glue las rutas van por el conector propio de AWS, no por s3a.
+    assert landing_uri("bucket", "landing/x.csv", "s3") == "s3://bucket/landing/x.csv"
 
 
 def test_clean_column_name_quita_el_bom():
@@ -95,6 +100,14 @@ def test_postgres_jdbc_traduce_el_dsn():
     assert properties["user"] == "lakehouse"
     assert properties["password"] == "secreto"
     assert properties["driver"] == "org.postgresql.Driver"
+
+
+def test_postgres_jdbc_conserva_el_sslmode():
+    # Neon exige TLS; el driver JDBC lo entiende como sslmode y no lee el resto del DSN.
+    url, _ = postgres_jdbc(
+        "postgresql://u:p@ep-x.neon.tech/lakehouse?sslmode=require&channel_binding=require"
+    )
+    assert url == "jdbc:postgresql://ep-x.neon.tech:5432/lakehouse?sslmode=require"
 
 
 def test_postgres_jdbc_asume_el_puerto_por_defecto():

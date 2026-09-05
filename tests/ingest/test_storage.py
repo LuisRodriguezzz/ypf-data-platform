@@ -6,7 +6,12 @@ import hashlib
 import os
 from datetime import date
 
-from pipelines.ingest.storage import build_key, sanitize_filename, stable_url_id
+from pipelines.ingest.storage import (
+    LandingStorage,
+    build_key,
+    sanitize_filename,
+    stable_url_id,
+)
 
 from .conftest import BUCKET
 
@@ -65,3 +70,24 @@ def test_stable_url_id_es_determinista():
     assert stable_url_id(url) == stable_url_id(url)
     assert len(stable_url_id(url)) == 16
     assert stable_url_id(url) != stable_url_id(url + "x")
+
+
+def test_key_for_sin_prefijo_es_la_key_del_dataset(storage):
+    # En local el bucket ya se llama `landing`: no hace falta prefijo.
+    key = storage.key_for("energia/produccion_pozo", "r1", "x.csv", date(2026, 9, 5))
+    assert key == "energia/produccion_pozo/resource_id=r1/ingest_date=2026-09-05/x.csv"
+
+
+def test_key_for_antepone_el_prefijo_del_bucket(s3_client):
+    # En AWS un solo bucket guarda landing/, warehouse/ y artifacts/.
+    storage = LandingStorage(
+        endpoint_url="",
+        access_key_id="",
+        secret_access_key="",
+        region="us-east-1",
+        bucket="ypf-lakehouse-123",
+        client=s3_client,
+        prefix="landing",
+    )
+    key = storage.key_for("energia/produccion_pozo", "r1", "x.csv", date(2026, 9, 5))
+    assert key == "landing/energia/produccion_pozo/resource_id=r1/ingest_date=2026-09-05/x.csv"

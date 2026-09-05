@@ -14,6 +14,9 @@ concurrency:
 env:
   # requires-python en pyproject.toml es ">=3.11,<3.13"; fijamos 3.12 para CI.
   PYTHON_VERSION: "3.12"
+  # Misma version que se usa en la maquina de desarrollo, para que el lock del provider
+  # (.terraform.lock.hcl, con hashes de windows y linux) sirva en los dos lados.
+  TERRAFORM_VERSION: "1.15.8"
 
 jobs:
   lint-y-tests:
@@ -39,6 +42,30 @@ jobs:
 
       - name: Tests
         run: uv run pytest
+
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Formato
+        run: terraform fmt -check -recursive
+
+      # Sin credenciales: el repo es publico y no hay secretos. `-backend=false` alcanza
+      # para que `validate` resuelva el provider y los tipos, y no corre plan ni apply.
+      - name: Init sin backend
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate
 
   dags-importan:
     runs-on: ubuntu-latest

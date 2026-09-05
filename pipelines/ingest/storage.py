@@ -83,18 +83,22 @@ class LandingStorage:
         bucket: str,
         client: object | None = None,
         part_size: int = PART_SIZE,
+        prefix: str = "",
     ) -> None:
         self.bucket = bucket
         self.part_size = part_size
+        self.prefix = prefix.strip("/")
         self.client = client or boto3.client(
             "s3",
-            endpoint_url=endpoint_url,
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key,
+            # Vacios en AWS: S3 real, credenciales del rol y direccionamiento por host.
+            # Con valores (MinIO en local) hace falta el endpoint y el estilo path.
+            endpoint_url=endpoint_url or None,
+            aws_access_key_id=access_key_id or None,
+            aws_secret_access_key=secret_access_key or None,
             region_name=region,
             config=Config(
                 signature_version="s3v4",
-                s3={"addressing_style": "path"},
+                s3={"addressing_style": "path" if endpoint_url else "auto"},
                 retries={"max_attempts": 5, "mode": "standard"},
             ),
         )
@@ -108,7 +112,15 @@ class LandingStorage:
             secret_access_key=settings.s3_secret_access_key,
             region=settings.s3_region,
             bucket=settings.s3_landing_bucket,
+            prefix=settings.s3_landing_prefix,
         )
+
+    def key_for(
+        self, landing_prefix: str, resource_id: str, filename: str, ingest_date: date
+    ) -> str:
+        """Key completa: el prefijo del bucket (vacio en local) mas el del dataset."""
+        full = f"{self.prefix}/{landing_prefix}" if self.prefix else landing_prefix
+        return build_key(full, resource_id, filename, ingest_date)
 
     def upload_stream(self, key: str, chunks: Iterable[bytes]) -> UploadResult:
         """Sube un iterador de chunks con multipart y calcula sha256 al vuelo."""

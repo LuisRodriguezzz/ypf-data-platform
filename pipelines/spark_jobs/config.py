@@ -19,6 +19,7 @@ DEFAULT_ENV_FILE = Path(__file__).resolve().parents[2] / "config" / "local.env"
 class LakehouseConfig:
     """Endpoints y credenciales que necesitan los jobs."""
 
+    lakehouse_target: str  # local | aws
     s3_endpoint_url: str
     s3_access_key_id: str
     s3_secret_access_key: str
@@ -26,7 +27,17 @@ class LakehouseConfig:
     s3_landing_bucket: str
     iceberg_catalog_uri: str
     iceberg_warehouse: str
+    glue_warehouse: str
     postgres_dsn: str
+
+    @property
+    def is_aws(self) -> bool:
+        return self.lakehouse_target == "aws"
+
+    @property
+    def s3_scheme(self) -> str:
+        """Esquema de las rutas de landing: Glue trae su propio conector `s3://`."""
+        return "s3" if self.is_aws else "s3a"
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -52,6 +63,7 @@ def load_config(env_file: Path | str | None = None) -> LakehouseConfig:
         return os.environ.get(name) or defaults.get(name, fallback)
 
     return LakehouseConfig(
+        lakehouse_target=value("LAKEHOUSE_TARGET", "local"),
         s3_endpoint_url=value("S3_ENDPOINT_URL", "http://localhost:9000"),
         s3_access_key_id=value("S3_ACCESS_KEY_ID", ""),
         s3_secret_access_key=value("S3_SECRET_ACCESS_KEY", ""),
@@ -59,5 +71,7 @@ def load_config(env_file: Path | str | None = None) -> LakehouseConfig:
         s3_landing_bucket=value("S3_LANDING_BUCKET", "landing"),
         iceberg_catalog_uri=value("ICEBERG_CATALOG_URI", "http://localhost:8181"),
         iceberg_warehouse=value("ICEBERG_WAREHOUSE", "s3://lakehouse/warehouse"),
+        # Solo se usa con LAKEHOUSE_TARGET=aws: es el warehouse del Glue Data Catalog.
+        glue_warehouse=value("GLUE_WAREHOUSE", ""),
         postgres_dsn=value("POSTGRES_DSN", ""),
     )

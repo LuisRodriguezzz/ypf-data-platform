@@ -18,13 +18,13 @@ from pipelines.spark_jobs.bronze_rules import (
     LandedFile,
     clean_column_name,
     dataset_names,
+    landing_uri,
     latest_ok_query,
     load_table_rules,
     namespace_of,
     pending_files,
     postgres_jdbc,
     resources_by_table,
-    s3a_uri,
     unmapped_resources,
 )
 from pipelines.spark_jobs.config import load_config
@@ -102,10 +102,12 @@ def write_partition(spark: SparkSession, df: DataFrame, table: str) -> None:
     )
 
 
-def load_resource(spark: SparkSession, file: LandedFile, bucket: str, table: str) -> int:
+def load_resource(
+    spark: SparkSession, file: LandedFile, bucket: str, table: str, scheme: str = "s3a"
+) -> int:
     """Carga un recurso y devuelve la cantidad de filas que quedaron en su partición."""
     started = time.monotonic()
-    df = with_metadata(read_landing_csv(spark, s3a_uri(bucket, file.landing_key)), file)
+    df = with_metadata(read_landing_csv(spark, landing_uri(bucket, file.landing_key, scheme)), file)
     write_partition(spark, df, table)
     rows = spark.table(table).filter(F.col("_resource_id") == file.resource_id).count()
     logger.info(
@@ -149,7 +151,9 @@ def main(argv: list[str] | None = None) -> int:
             pending = pending_files(files, loaded_sha256(spark, table))
             logger.info("tabla=%s recursos=%d pendientes=%d", table, len(files), len(pending))
             for file in pending:
-                total_rows += load_resource(spark, file, config.s3_landing_bucket, table)
+                total_rows += load_resource(
+                    spark, file, config.s3_landing_bucket, table, config.s3_scheme
+                )
                 loaded_resources += 1
 
         logger.info(

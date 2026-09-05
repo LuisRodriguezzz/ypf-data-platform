@@ -14,7 +14,7 @@ import requests
 from pipelines.ingest.ckan import DEFAULT_TIMEOUT, CkanClient, Resource, build_session, force_http
 from pipelines.ingest.manifest import STATUS_FAILED, STATUS_OK, STATUS_UNCHANGED, Manifest
 from pipelines.ingest.registry import DatasetSpec
-from pipelines.ingest.storage import LandingStorage, build_key, stable_url_id
+from pipelines.ingest.storage import LandingStorage, stable_url_id
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ def _download(
     ingest_date: date,
 ) -> RunItem:
     """Baja el recurso a landing y decide entre `ok` y `unchanged` comparando el hash."""
-    key = build_key(
+    key = storage.key_for(
         spec.landing_prefix, resource.id, resource.filename or resource.name, ingest_date
     )
     run_id = _open_row(manifest, spec, resource, ingest_date, key)
@@ -291,12 +291,16 @@ def process_resource(
 
 
 def _dry_run_item(
-    spec: DatasetSpec, resource: Resource, manifest: Manifest, ingest_date: date
+    spec: DatasetSpec,
+    resource: Resource,
+    manifest: Manifest,
+    storage: LandingStorage,
+    ingest_date: date,
 ) -> RunItem:
     """Que haria la corrida con este recurso, sin tocar red ni manifiesto."""
     previous = manifest.latest_ok(spec.name, resource.id)
     status = STATUS_UNCHANGED if is_unchanged_by_metadata(previous, resource) else STATUS_OK
-    key = build_key(
+    key = storage.key_for(
         spec.landing_prefix, resource.id, resource.filename or resource.name, ingest_date
     )
     logger.info(
@@ -333,7 +337,7 @@ def run(
 
     for resource in discover(spec, ckan=ckan, session=http, only=only):
         if dry_run:
-            summary.items.append(_dry_run_item(spec, resource, manifest, day))
+            summary.items.append(_dry_run_item(spec, resource, manifest, storage, day))
         else:
             summary.items.append(process_resource(spec, resource, manifest, storage, http, day))
 

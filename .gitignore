@@ -12,6 +12,8 @@ __pycache__/
 # secretos y entornos
 .env
 config/*.local.env
+# wheel que se sube a artifacts/ (se regenera con `uv build`)
+dist/
 # terraform
 infra/terraform/.terraform/
 *.tfstate

@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import yaml
 
@@ -38,9 +38,9 @@ class TableRule:
     table: str
 
 
-def s3a_uri(bucket: str, key: str) -> str:
-    """Ruta s3a del objeto de landing."""
-    return f"s3a://{bucket}/{key.lstrip('/')}"
+def landing_uri(bucket: str, key: str, scheme: str = "s3a") -> str:
+    """Ruta del objeto de landing; el esquema depende del destino (s3a en local, s3 en Glue)."""
+    return f"{scheme}://{bucket}/{key.lstrip('/')}"
 
 
 def clean_column_name(name: str) -> str:
@@ -118,9 +118,14 @@ def latest_ok_query(dataset: str) -> str:
 
 
 def postgres_jdbc(dsn: str) -> tuple[str, dict[str, str]]:
-    """`postgresql://user:pass@host:5432/db` -> URL JDBC y propiedades de conexión."""
+    """`postgresql://user:pass@host:5432/db?sslmode=require` -> URL JDBC y propiedades."""
     parsed = urlparse(dsn)
     url = f"jdbc:postgresql://{parsed.hostname}:{parsed.port or 5432}{parsed.path}"
+    # El driver JDBC no entiende todos los parámetros de libpq (`channel_binding`, por
+    # ejemplo), pero sí `sslmode`, que es el que Neon exige para conectarse.
+    sslmode = parse_qs(parsed.query).get("sslmode", [""])[0]
+    if sslmode:
+        url = f"{url}?sslmode={sslmode}"
     properties = {
         "user": unquote(parsed.username or ""),
         "password": unquote(parsed.password or ""),
