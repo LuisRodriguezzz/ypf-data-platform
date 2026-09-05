@@ -111,9 +111,7 @@ def deduplicate(df: DataFrame, contract: Contract) -> DataFrame:
     orden = Window.partitionBy(*contract.primary_key).orderBy(
         F.col(contract.dedupe_by).desc_nulls_last()
     )
-    return (
-        df.withColumn("_orden", F.row_number().over(orden)).filter("_orden = 1").drop("_orden")
-    )
+    return df.withColumn("_orden", F.row_number().over(orden)).filter("_orden = 1").drop("_orden")
 
 
 def measure(df: DataFrame, contract: Contract) -> Measures:

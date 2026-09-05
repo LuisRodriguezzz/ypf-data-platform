@@ -53,9 +53,16 @@ def specs(registry_path: Path):
 @pytest.fixture
 def aws_credentials():
     """Credenciales falsas para que boto3 no toque el entorno real."""
-    saved = {k: os.environ.get(k) for k in
-             ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
-              "AWS_DEFAULT_REGION", "AWS_ENDPOINT_URL")}
+    saved = {
+        k: os.environ.get(k)
+        for k in (
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "AWS_SESSION_TOKEN",
+            "AWS_DEFAULT_REGION",
+            "AWS_ENDPOINT_URL",
+        )
+    }
     os.environ.update(
         AWS_ACCESS_KEY_ID="testing",
         AWS_SECRET_ACCESS_KEY="testing",

@@ -15,8 +15,9 @@ def test_carga_las_entradas_del_yaml(specs):
 
 def test_include_selecciona_la_familia_ddjj_y_los_agregados(specs):
     spec = specs["produccion_pozo"]
-    assert spec.matches("Producción de Pozos de Gas y Petróleo - 2024 (DDJJ abiertas y cerradas)",
-                        "CSV")
+    assert spec.matches(
+        "Producción de Pozos de Gas y Petróleo - 2024 (DDJJ abiertas y cerradas)", "CSV"
+    )
     assert spec.matches("Producción de Pozos de Gas y Petróleo No Convencional", "CSV")
     assert spec.matches("Capítulo IV - Pozos", "CSV")
     # familia normal: mismo año pero sin el sufijo DDJJ
@@ -58,8 +59,13 @@ def test_valida_configuracion_incoherente():
     with pytest.raises(ValueError):
         DatasetSpec(name="x", source_type="ckan", landing_prefix="p/x")
     with pytest.raises(ValueError):
-        DatasetSpec(name="x", source_type="http_file", landing_prefix="p/x",
-                    url_template="http://a/b.zip", years=(2024,))
+        DatasetSpec(
+            name="x",
+            source_type="http_file",
+            landing_prefix="p/x",
+            url_template="http://a/b.zip",
+            years=(2024,),
+        )
     with pytest.raises(ValueError):
         DatasetSpec(name="x", source_type="otro", landing_prefix="p/x")
 

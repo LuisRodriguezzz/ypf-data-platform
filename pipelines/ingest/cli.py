@@ -59,7 +59,9 @@ def list_datasets() -> None:
     _configure_logging()
     for name, spec in sorted(load_registry().items()):
         logger.info(
-            "dataset=%s source_type=%s landing_prefix=%s", name, spec.source_type,
+            "dataset=%s source_type=%s landing_prefix=%s",
+            name,
+            spec.source_type,
             spec.landing_prefix,
         )
 
@@ -87,8 +89,12 @@ def list_resources(
         )
         logger.info(
             "recurso id=%s nombre=%r formato=%s tamaño=%s modificado=%s al_dia=%s",
-            resource.id, resource.name, resource.format, _mb(resource.size),
-            resource.last_modified, "si" if up_to_date else "no",
+            resource.id,
+            resource.name,
+            resource.format,
+            _mb(resource.size),
+            resource.last_modified,
+            "si" if up_to_date else "no",
         )
     logger.info("dataset=%s recursos=%d", spec.name, len(resources))
 
@@ -116,12 +122,19 @@ def run_ingest(
     for item in summary.items:
         logger.info(
             "resultado recurso=%r status=%s key=%s bytes=%s descargado=%s error=%s",
-            item.resource_name, item.status, item.landing_key, item.size_bytes,
-            item.downloaded, item.error,
+            item.resource_name,
+            item.status,
+            item.landing_key,
+            item.size_bytes,
+            item.downloaded,
+            item.error,
         )
     logger.info(
         "resumen dataset=%s ok=%d unchanged=%d failed=%d bytes_descargados=%d",
-        summary.dataset, summary.ok, summary.unchanged, summary.failed,
+        summary.dataset,
+        summary.ok,
+        summary.unchanged,
+        summary.failed,
         summary.downloaded_bytes,
     )
     raise typer.Exit(code=summary.exit_code)
@@ -139,9 +152,14 @@ def show_manifest(
     for row in rows:
         logger.info(
             "id=%s status=%s recurso=%r sha256=%s bytes=%s key=%s ingest_date=%s error=%s",
-            row["id"], row["status"], row["resource_name"],
-            (row["sha256"] or "")[:12], row["size_bytes_landed"], row["landing_key"],
-            row["ingest_date"], row["error"],
+            row["id"],
+            row["status"],
+            row["resource_name"],
+            (row["sha256"] or "")[:12],
+            row["size_bytes_landed"],
+            row["landing_key"],
+            row["ingest_date"],
+            row["error"],
         )
     logger.info("dataset=%s filas=%d", spec.name, len(rows))
 

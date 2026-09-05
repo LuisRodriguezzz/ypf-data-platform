@@ -128,9 +128,7 @@ def test_capitulo_iv_va_al_catalogo_de_pozos():
 
 
 def test_el_padron_va_a_primera_produccion():
-    assert (
-        table_for_resource(PRODUCCION_RULES, PADRON) == "lake.bronze.pozo_primera_produccion"
-    )
+    assert table_for_resource(PRODUCCION_RULES, PADRON) == "lake.bronze.pozo_primera_produccion"
 
 
 def test_un_recurso_desconocido_no_tiene_tabla():

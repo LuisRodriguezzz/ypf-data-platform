@@ -246,7 +246,11 @@ def _download(
     )
     logger.info(
         "%s dataset=%s recurso=%s key=%s bytes=%d",
-        status, spec.name, resource.name, result.key, result.size_bytes,
+        status,
+        spec.name,
+        resource.name,
+        result.key,
+        result.size_bytes,
     )
     return RunItem(
         resource_id=resource.id,
@@ -297,7 +301,11 @@ def _dry_run_item(
     )
     logger.info(
         "[dry-run] dataset=%s recurso=%s accion=%s key=%s bytes_origen=%s",
-        spec.name, resource.name, status, key, resource.size,
+        spec.name,
+        resource.name,
+        status,
+        key,
+        resource.size,
     )
     return RunItem(
         resource_id=resource.id,
@@ -327,13 +335,15 @@ def run(
         if dry_run:
             summary.items.append(_dry_run_item(spec, resource, manifest, day))
         else:
-            summary.items.append(
-                process_resource(spec, resource, manifest, storage, http, day)
-            )
+            summary.items.append(process_resource(spec, resource, manifest, storage, http, day))
 
     logger.info(
         "corrida dataset=%s ok=%d unchanged=%d failed=%d bytes_descargados=%d dry_run=%s",
-        spec.name, summary.ok, summary.unchanged, summary.failed,
-        summary.downloaded_bytes, dry_run,
+        spec.name,
+        summary.ok,
+        summary.unchanged,
+        summary.failed,
+        summary.downloaded_bytes,
+        dry_run,
     )
     return summary

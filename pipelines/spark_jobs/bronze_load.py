@@ -147,9 +147,7 @@ def main(argv: list[str] | None = None) -> int:
         for table, files in resources_by_table(landed, rules).items():
             spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {namespace_of(table)}")
             pending = pending_files(files, loaded_sha256(spark, table))
-            logger.info(
-                "tabla=%s recursos=%d pendientes=%d", table, len(files), len(pending)
-            )
+            logger.info("tabla=%s recursos=%d pendientes=%d", table, len(files), len(pending))
             for file in pending:
                 total_rows += load_resource(spark, file, config.s3_landing_bucket, table)
                 loaded_resources += 1

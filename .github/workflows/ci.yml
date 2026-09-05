@@ -1,0 +1,80 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela corridas viejas del mismo branch/PR cuando llega un push nuevo.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # requires-python en pyproject.toml es ">=3.11,<3.13"; fijamos 3.12 para CI.
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  lint-y-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias del proyecto
+        run: uv sync --all-groups
+
+      - name: Ruff (lint)
+        run: uv run ruff check .
+
+      - name: Ruff (formato)
+        run: uv run ruff format --check .
+
+      - name: Tests
+        run: uv run pytest
+
+  dags-importan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar Airflow (venv aparte, no vive en uv.lock)
+        # Airflow no se instala en Windows (ADR: el repo se desarrolla ahí), así que no puede
+        # sumarse al lockfile del proyecto. Constraints oficiales para reproducibilidad.
+        run: |
+          pip install "apache-airflow==3.3.1" "apache-airflow-providers-docker" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.12.txt"
+
+      - name: Verificar que los DAGs importan
+        env:
+          # Coordenadas del runner que orchestration/dags/runner.py exige al importarse.
+          RUNNER_IMAGE: "dummy-image"
+          RUNNER_NETWORK: "dummy-network"
+          RUNNER_IVY_VOLUME: "dummy-volume"
+          RUNNER_REPO_DIR: "/dummy/repo"
+          # FORWARDED_ENV: solo hace falta que existan, DagBag no los usa de verdad.
+          AWS_ACCESS_KEY_ID: "dummy"
+          AWS_SECRET_ACCESS_KEY: "dummy"
+          AWS_REGION: "us-east-1"
+          S3_ENDPOINT_URL: "http://dummy"
+          S3_ACCESS_KEY_ID: "dummy"
+          S3_SECRET_ACCESS_KEY: "dummy"
+          S3_REGION: "us-east-1"
+          S3_LANDING_BUCKET: "dummy"
+          ICEBERG_CATALOG_URI: "http://dummy"
+          ICEBERG_WAREHOUSE: "dummy"
+          POSTGRES_DSN: "postgresql://dummy"
+        run: python scripts/check_dags.py

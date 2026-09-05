@@ -180,11 +180,7 @@ class Manifest:
         }
         if landing_key is not None:
             values["landing_key"] = landing_key
-        stmt = (
-            update(ingestion_manifest)
-            .where(ingestion_manifest.c.id == run_id)
-            .values(**values)
-        )
+        stmt = update(ingestion_manifest).where(ingestion_manifest.c.id == run_id).values(**values)
         with self.engine.begin() as conn:
             conn.execute(stmt)
 

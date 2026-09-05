@@ -186,9 +186,7 @@ def test_regla_de_minimo_y_maximo():
 def test_regla_de_allowed_values():
     contract = contrato(columna("tipo", allowed_values=["CONVENCIONAL", "NO CONVENCIONAL"]))
     condicion, motivo = reject_rules(contract)[0]
-    assert condicion == (
-        "nullif(trim(`tipo`), '') NOT IN ('CONVENCIONAL', 'NO CONVENCIONAL')"
-    )
+    assert condicion == ("nullif(trim(`tipo`), '') NOT IN ('CONVENCIONAL', 'NO CONVENCIONAL')")
     assert motivo == "tipo fuera de allowed_values"
 
 
