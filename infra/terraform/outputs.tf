@@ -6,15 +6,15 @@ output "lakehouse_bucket" {
 output "glue_jobs" {
   description = "Nombres de los tres jobs de Glue, en el orden en que corren."
   value = [
-    aws_glue_job.ingest_produccion_pozo.name,
-    aws_glue_job.bronze_produccion_pozo.name,
-    aws_glue_job.silver_produccion_pozo.name,
+    aws_glue_job.ingest_landing.name,
+    aws_glue_job.bronze_load.name,
+    aws_glue_job.silver_load.name,
   ]
 }
 
-output "state_machine_arn" {
-  description = "ARN de la máquina de estados que encadena los tres jobs."
-  value       = aws_sfn_state_machine.produccion_pozo_mensual.arn
+output "state_machine_arns" {
+  description = "ARN de la máquina de estados de cada pipeline, por nombre."
+  value       = { for nombre, maquina in aws_sfn_state_machine.pipeline : nombre => maquina.arn }
 }
 
 output "athena_workgroup" {

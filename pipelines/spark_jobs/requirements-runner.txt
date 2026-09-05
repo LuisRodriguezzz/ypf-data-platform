@@ -12,3 +12,10 @@ psycopg[binary]==3.3.5
 typer==0.27.2
 pydantic-settings==2.15.0
 requests==2.34.2
+
+# Bronze de reservas: el XLSX se lee con openpyxl y se escribe a Iceberg con pyiceberg, sin
+# Spark (400 KB no justifican una JVM; ver pipelines/reservas/bronze_load.py). pyarrow va
+# explicito porque es el FileIO que pyiceberg usa para hablar con MinIO.
+openpyxl==3.1.5
+pyiceberg==0.12.0
+pyarrow==25.0.1

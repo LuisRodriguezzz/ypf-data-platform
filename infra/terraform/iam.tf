@@ -78,7 +78,7 @@ resource "aws_iam_role_policy" "glue_job" {
 
 resource "aws_iam_role" "step_functions" {
   name               = "${var.project}-stepfunctions"
-  description        = "Rol de la máquina de estados produccion_pozo_mensual."
+  description        = "Rol de las máquinas de estados de los pipelines."
   assume_role_policy = data.aws_iam_policy_document.asume["states.amazonaws.com"].json
 }
 
@@ -87,9 +87,9 @@ data "aws_iam_policy_document" "step_functions" {
     sid     = "CorrerLosJobsDeGlue"
     actions = ["glue:StartJobRun", "glue:GetJobRun", "glue:GetJobRuns", "glue:BatchStopJobRun"]
     resources = [
-      aws_glue_job.ingest_produccion_pozo.arn,
-      aws_glue_job.bronze_produccion_pozo.arn,
-      aws_glue_job.silver_produccion_pozo.arn,
+      aws_glue_job.ingest_landing.arn,
+      aws_glue_job.bronze_load.arn,
+      aws_glue_job.silver_load.arn,
     ]
   }
 
@@ -118,9 +118,9 @@ resource "aws_iam_role" "scheduler" {
 
 data "aws_iam_policy_document" "scheduler" {
   statement {
-    sid       = "ArrancarLaMaquinaDeEstados"
+    sid       = "ArrancarLasMaquinasDeEstados"
     actions   = ["states:StartExecution"]
-    resources = [aws_sfn_state_machine.produccion_pozo_mensual.arn]
+    resources = [for maquina in aws_sfn_state_machine.pipeline : maquina.arn]
   }
 }
 

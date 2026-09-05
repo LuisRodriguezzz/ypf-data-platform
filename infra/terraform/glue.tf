@@ -38,11 +38,14 @@ locals {
   })
 }
 
+# Los tres jobs son genéricos: el dataset y el contrato no van en los argumentos por defecto,
+# los pasa la máquina de estados de cada pipeline (ver stepfunctions.tf).
+
 # Ingesta: baja los CSV del portal a landing/. Es I/O de red, no necesita Spark, así que va
 # como Python shell con 1/16 de DPU (lo más barato que ofrece Glue).
-resource "aws_glue_job" "ingest_produccion_pozo" {
-  name         = "ingest_produccion_pozo"
-  description  = "Descarga los recursos del dataset produccion_pozo a landing/ y registra el manifiesto."
+resource "aws_glue_job" "ingest_landing" {
+  name         = "ingest_landing"
+  description  = "Descarga los recursos de un dataset a landing/ y registra el manifiesto."
   role_arn     = aws_iam_role.glue_job.arn
   max_capacity = 0.0625
   max_retries  = 0
@@ -55,7 +58,6 @@ resource "aws_glue_job" "ingest_produccion_pozo" {
   }
 
   default_arguments = merge(local.target_arguments, {
-    "--dataset" = "produccion_pozo"
     # Python shell no acepta wheels de S3 en --additional-python-modules, y lo que llega
     # por --extra-py-files lo instala con pip, que rechaza este wheel porque el proyecto
     # pide Python >= 3.11. El script se baja el wheel de acá y lo descomprime a mano.
@@ -70,8 +72,8 @@ resource "aws_glue_job" "ingest_produccion_pozo" {
   })
 }
 
-resource "aws_glue_job" "bronze_produccion_pozo" {
-  name              = "bronze_produccion_pozo"
+resource "aws_glue_job" "bronze_load" {
+  name              = "bronze_load"
   description       = "Copia los CSV de landing a las tablas Iceberg de bronze."
   role_arn          = aws_iam_role.glue_job.arn
   glue_version      = "5.0"
@@ -87,13 +89,12 @@ resource "aws_glue_job" "bronze_produccion_pozo" {
   }
 
   default_arguments = merge(local.spark_arguments, {
-    "--dataset"                    = "produccion_pozo"
     "--POSTGRES_DSN_SSM_PARAMETER" = var.postgres_dsn_ssm_parameter
   })
 }
 
-resource "aws_glue_job" "silver_produccion_pozo" {
-  name              = "silver_produccion_pozo"
+resource "aws_glue_job" "silver_load" {
+  name              = "silver_load"
   description       = "Aplica un contrato de datos sobre bronze y escribe la tabla silver."
   role_arn          = aws_iam_role.glue_job.arn
   glue_version      = "5.0"
@@ -108,7 +109,5 @@ resource "aws_glue_job" "silver_produccion_pozo" {
     script_location = "${local.artifacts_uri}/silver_job.py"
   }
 
-  default_arguments = merge(local.spark_arguments, {
-    "--contract" = "produccion_pozo"
-  })
+  default_arguments = local.spark_arguments
 }

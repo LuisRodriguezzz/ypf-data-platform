@@ -97,7 +97,12 @@ def test_el_contrato_del_padron_no_tiene_dedupe_ni_rangos_de_fecha():
 
 
 def test_contract_names_lista_los_yaml_disponibles():
-    assert contract_names() == ["pozo_primera_produccion", "produccion_pozo"]
+    assert contract_names() == [
+        "fractura",
+        "pozo_primera_produccion",
+        "produccion_pozo",
+        "reservas",
+    ]
 
 
 def test_un_tipo_invalido_se_rechaza(tmp_path):

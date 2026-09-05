@@ -10,9 +10,9 @@ if (-not (Test-Path $aws)) { $aws = "aws" }
 # Los jobs de Spark escriben en /aws-glue/jobs/output. El Python shell manda stdout a
 # /aws-glue/python-jobs/output y stderr (donde escribe `logging`) a /aws-glue/python-jobs/error.
 $jobs = @(
-    @{ name = "ingest_produccion_pozo"; group = "/aws-glue/python-jobs/error" },
-    @{ name = "bronze_produccion_pozo"; group = "/aws-glue/jobs/output" },
-    @{ name = "silver_produccion_pozo"; group = "/aws-glue/jobs/output" }
+    @{ name = "ingest_landing"; group = "/aws-glue/python-jobs/error" },
+    @{ name = "bronze_load"; group = "/aws-glue/jobs/output" },
+    @{ name = "silver_load"; group = "/aws-glue/jobs/output" }
 )
 # Palabras que identifican las líneas de nuestro programa (no las de Spark ni de pip).
 $filtro = '?pendientes ?resumen ?unchanged ?cargado ?descargando ?"ok=" ?rechazadas ?ERROR'

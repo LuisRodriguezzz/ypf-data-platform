@@ -7,7 +7,7 @@ lanza el runner de Spark con un comando y espera a que muera (ADR 0006). `runner
 | DAG | Schedule | Tareas |
 | --- | --- | --- |
 | `produccion_pozo_mensual` | `@monthly` | ingesta → bronze → silver `produccion_pozo` → silver `pozo_primera_produccion` |
-| `fractura_diaria` | `@daily` | ingesta → bronze |
+| `fractura_diaria` | `@daily` | ingesta → bronze → silver `fractura` |
 | `reservas_mensual` | `@monthly` | ingesta |
 
 ## Levantar

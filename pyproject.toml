@@ -34,7 +34,7 @@ packages = ["pipelines"]
 
 [tool.ruff]
 line-length = 100
-exclude = [".venv", "data", "research"]
+exclude = [".venv", "data", "research", "docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "W"]
@@ -45,6 +45,8 @@ select = ["E", "F", "I", "UP", "B", "W"]
 # cuando la lanza Airflow (ADR 0006), asi que tambien tiene que ser compatible con 3.10.
 "pipelines/spark_jobs/*.py" = ["UP017"]
 "pipelines/ingest/manifest.py" = ["UP017"]
+# El bronze de reservas es otra tarea que Airflow lanza en el runner (DAG reservas_mensual).
+"pipelines/reservas/bronze_load.py" = ["UP017"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
