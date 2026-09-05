@@ -1,0 +1,58 @@
+# Semana 0 — De-risking (2026-09-05)
+
+Pruebas ejecutadas contra las fuentes reales antes de escribir infraestructura. Todo lo de abajo se midió, no se leyó.
+
+## Portal datos.energia.gob.ar
+
+- Descarga directa por `http://` sin redirecciones: 320 MB en 17,5 s (18 MB/s). Confirma que la ingesta puede ir en GitHub Actions o en local sin trucos.
+- `package_show` del dataset de producción por pozo devuelve 53 recursos. Cada año existe en dos familias: la normal y la "DDJJ abiertas y cerradas". El año 2024 aparece dos veces con ids distintos (`43a09dce…` y `94d82d18…`) y mismo tamaño. Hay que elegir una familia y deduplicar por id de recurso, no por nombre.
+- Volumen total de una familia completa 2006-2026: unos 7,3 GB en CSV. Recursos agregados útiles: No Convencional (145 MB), Capítulo IV Pozos (34 MB), padrón de primera producción (1,2 MB, 86.197 pozos), agrupado por yacimiento y formación (124 MB).
+
+## CSV de producción 2024
+
+| Métrica | Valor |
+|---|---|
+| Filas | 983.551 |
+| Columnas | 39 (las 38 conocidas + `id`) |
+| Pozos únicos | 82.379 |
+| Empresas | 59 |
+| Filas YPF S.A. | 471.757 (48,0 %) |
+| Pozos YPF | 39.787 |
+| Duplicados `idpozo+anio+mes` | 0 |
+| Lectura con Polars | 0,6 s |
+
+- Esquema: las columnas numéricas llegan con decimales ("0.000"), así que hay que forzar Float64; la inferencia automática falla.
+- `tef` va de 0 a 720 con mediana 0: son horas efectivas de producción en el mes (720 = 30 días × 24 h). Un valor negativo (-0,01) confirma que necesita test de rango.
+- `vida_util` es 0 en todas las filas de 2024: columna vacía en este año; no usar como feature sin verificar otros años.
+- YPF 2024 por tipo de recurso: no convencional tiene 26.148 filas pero 12,7 millones de m³ de petróleo; convencional tiene 445.609 filas y 7,4 millones. Vaca Muerta concentra el volumen en pocos pozos.
+- Cuencas de YPF por filas: Golfo San Jorge 253.043, Neuquina 172.659, Cuyana 37.367, Austral 8.676.
+- `tipoestado` dominante: Extracción Efectiva 321.124, Abandonado 224.200. Un tercio de las filas son pozos que no producen; bronze los conserva y silver filtra por estado solo donde corresponda.
+- Encoding: UTF-8 con BOM; usar `encoding="utf8-lossy"` o quitar el BOM.
+
+## XLSX de reservas 2024
+
+- ZIP de 314 KB con un único XLSX de 416 KB y dos hojas: `fin de concesión` y `fin de vida util`.
+- 1.243 filas × 29 columnas. Encabezado de 7 filas; rangos fusionados en filas 1-2 (título), 3 (Convencional / No convencional), 4 (Reservas / Recursos contingentes) y 5 (Comprobadas / Probables / Posibles). Fila 6 = PET/GAS, fila 7 = nombres y unidades (Mm3 / MMm3).
+- Columnas de identificación en fila 7: `OPERADOR, CUENCA, PROVINCIA, CONCESIÓN O PERMISO, YACIMIENTO`.
+- Filas de YPF S.A.: 383 de 1.236 (primer operador; siguen Venoil 107, PAE 93, Tecpetrol 73).
+
+## 3W (Petrobras)
+
+- Clase 0: 594 archivos reales (WELL-*), 162 MB. Clase 2: 22 reales + 16 simulados, 18,5 MB.
+- Archivo real `WELL-00002_20131104004101.parquet`: 12.721 filas × 30 columnas, 3 h 32 min, intervalo de muestreo exactamente 1 segundo (delta único). Queda resuelto el punto abierto de la investigación.
+- Columnas: 27 sensores + `class`, `state`, `timestamp` (Datetime ns). En este pozo de 2013, 23 de los 27 sensores están totalmente nulos y `P-PDG` es 0 constante: los archivos viejos traen pocos sensores. El pipeline de streaming debe tolerar nulos por columna y no asumir el esquema completo.
+- `class` toma valores 0, 2 y 102: el valor 100+N marca el transitorio previo al evento N. Es una etiqueta que hay que modelar, no descartar.
+
+## Máquina
+
+- Ryzen 5 5500U (6 núcleos / 12 hilos), 16 GB RAM, 55 GB libres tras limpiar McAfee y Antigravity.
+- Herramientas presentes: Python 3.13, uv 0.11, Podman 5.8 (máquina con 2 GB de RAM asignados y 100 GB de disco virtual), WSL Ubuntu 24.04, git.
+- Faltan: Docker Desktop (o configurar Podman con 10 GB), Java (lo trae la imagen de Spark), make, Terraform, AWS CLI.
+
+## Decisiones que salen de la semana 0
+
+1. Ingesta por `http://` con `requests` y `allow_redirects=True`; nunca forzar HTTPS.
+2. Bronze conserva todo tal cual (incluidos pozos abandonados); silver aplica esquema explícito con Float64 y filtra por `tipoestado` solo en los modelos que lo requieran.
+3. Contrato de datos para producción: unicidad `idpozo+anio+mes`, `tef` en [0, 744], `prod_*` ≥ 0, `empresa` no nula.
+4. Streaming sobre 3W a 1 Hz real; velocidad de replay configurable (x1, x10, x60).
+5. Elegir la familia "DDJJ abiertas y cerradas" o la normal después de comparar un año completo entre ambas (pendiente).

@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YPF Data Platform Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #EEF1F4;
+    --surface: #FFFFFF;
+    --surface-2: #F6F8FA;
+    --ink: #16202B;
+    --muted: #5B6875;
+    --line: #D3DAE1;
+    --line-strong: #AEB9C4;
+    --accent: #C8731A;
+    --accent-ink: #8F4E0C;
+    --accent-soft: #FBEEDD;
+    --ok: #1F7A74;
+    --ok-soft: #DDF0EE;
+    --warn: #8A6D1F;
+    --warn-soft: #F5ECCF;
+    --bad: #B8412F;
+    --bad-soft: #F8E1DC;
+    --unk: #6B7680;
+    --unk-soft: #E6EAEE;
+    --code-bg: #F0F3F6;
+    --shadow: 0 1px 2px rgba(22,32,43,.06), 0 8px 24px rgba(22,32,43,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E141B;
+      --surface: #161E27;
+      --surface-2: #1C2631;
+      --ink: #E4EAF0;
+      --muted: #98A5B2;
+      --line: #2A3542;
+      --line-strong: #3C4A59;
+      --accent: #F0A24A;
+      --accent-ink: #F7C27E;
+      --accent-soft: #33261A;
+      --ok: #4CC2B7;
+      --ok-soft: #12302E;
+      --warn: #E0BC5A;
+      --warn-soft: #33290F;
+      --bad: #E5715C;
+      --bad-soft: #3A1B16;
+      --unk: #9AA6B2;
+      --unk-soft: #232C36;
+      --code-bg: #0F161D;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E141B;
+    --surface: #161E27;
+    --surface-2: #1C2631;
+    --ink: #E4EAF0;
+    --muted: #98A5B2;
+    --line: #2A3542;
+    --line-strong: #3C4A59;
+    --accent: #F0A24A;
+    --accent-ink: #F7C27E;
+    --accent-soft: #33261A;
+    --ok: #4CC2B7;
+    --ok-soft: #12302E;
+    --warn: #E0BC5A;
+    --warn-soft: #33290F;
+    --bad: #E5715C;
+    --bad-soft: #3A1B16;
+    --unk: #9AA6B2;
+    --unk-soft: #232C36;
+    --code-bg: #0F161D;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-ink); text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 0; min-height: 100vh; }
+  nav.side {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    padding: 28px 18px 28px 22px; border-right: 1px solid var(--line); background: var(--surface);
+  }
+  nav.side .brand { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-weight: 700; font-size: 20px; letter-spacing: .02em; text-transform: uppercase; line-height: 1.1; }
+  nav.side .brand small { display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; margin-top: 6px; }
+  nav.side ol { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  nav.side a { display: block; padding: 6px 8px; border-radius: 4px; color: var(--ink); text-decoration: none; font-size: 13.5px; }
+  nav.side a:hover { background: var(--surface-2); }
+  nav.side a .n { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-right: 6px; }
+  main { padding: 36px clamp(20px, 5vw, 72px) 96px; max-width: 1080px; }
+  @media (max-width: 960px) {
+    .shell { grid-template-columns: 1fr; }
+    nav.side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    nav.side ol { flex-direction: row; flex-wrap: wrap; gap: 4px 10px; }
+  }
+
+  /* Type scale */
+  h1, h2, h3, h4 { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; text-wrap: balance; line-height: 1.1; margin: 0; }
+  h1 { font-size: clamp(40px, 6vw, 60px); font-weight: 700; letter-spacing: .005em; }
+  h2 { font-size: 32px; font-weight: 600; margin-top: 64px; padding-top: 18px; border-top: 2px solid var(--ink); }
+  h2 .n { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; letter-spacing: .04em; }
+  h3 { font-size: 23px; font-weight: 600; margin-top: 34px; }
+  h4 { font-size: 17px; font-weight: 600; margin-top: 20px; font-family: "IBM Plex Sans", sans-serif; }
+  p { max-width: 68ch; margin: 12px 0; }
+  ul, ol { max-width: 72ch; padding-left: 22px; }
+  li { margin: 5px 0; }
+  li::marker { color: var(--muted); }
+  .lede { font-size: 18px; color: var(--ink); max-width: 66ch; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .92em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+
+  /* Header */
+  header.hero { border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+  header.hero .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+
+  /* Badges */
+  .b { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; line-height: 1; padding: 4px 6px; border-radius: 3px; vertical-align: middle; white-space: nowrap; letter-spacing: .02em; }
+  .b-v { background: var(--ok-soft); color: var(--ok); }
+  .b-p { background: var(--warn-soft); color: var(--warn); }
+  .b-u { background: var(--unk-soft); color: var(--unk); }
+  .b-x { background: var(--bad-soft); color: var(--bad); }
+  .b-a { background: var(--accent-soft); color: var(--accent-ink); }
+
+  /* Key findings */
+  .findings { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+  @media (max-width: 720px) { .findings { grid-template-columns: 1fr; } }
+  .finding { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; }
+  .finding .k { font-family: "Barlow Condensed", sans-serif; font-size: 20px; font-weight: 600; line-height: 1.15; }
+  .finding p { font-size: 14px; margin: 8px 0 0; color: var(--ink); }
+
+  /* Stats row */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 20px 0 6px; }
+  .stat { border-top: 2px solid var(--accent); padding: 10px 0 0; }
+  .stat .v { font-family: "Barlow Condensed", sans-serif; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+
+  /* Tables */
+  .tw { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { padding: 9px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { background: var(--surface-2); font-weight: 600; font-size: 12.5px; letter-spacing: .02em; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; }
+  td .mono { font-size: 12px; }
+
+  /* Options */
+  .option { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 22px 26px 24px; margin-top: 22px; box-shadow: var(--shadow); }
+  .option.rec { border-color: var(--accent); }
+  .option .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+  .option .head h3 { margin: 0; font-size: 28px; }
+  .option .tag { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); }
+  .option .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 28px; margin-top: 14px; }
+  @media (max-width: 720px) { .option .grid { grid-template-columns: 1fr; } }
+  .option .grid > div { min-width: 0; }
+  .option h4 { margin-top: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+  .option ul { margin: 6px 0 0; padding-left: 18px; font-size: 14.5px; }
+  .option p { font-size: 14.5px; }
+  .scores { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .scores b { color: var(--ink); font-weight: 500; }
+  .bar { display: inline-block; width: 60px; height: 6px; background: var(--unk-soft); border-radius: 3px; vertical-align: middle; margin-left: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+
+  /* Figures */
+  figure { margin: 22px 0; }
+  figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; max-width: 78ch; }
+  .diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto; }
+
+  /* Callouts */
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 18px 0; max-width: 74ch; }
+  .note p { margin: 4px 0; font-size: 14.5px; }
+  .warn { border-left-color: var(--bad); background: var(--bad-soft); }
+
+  /* Roadmap */
+  .phases { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 10px; max-width: 80ch; }
+  .phases li { display: grid; grid-template-columns: 84px 1fr; gap: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  .phases .w { font-family: "Barlow Condensed", sans-serif; font-size: 20px; font-weight: 600; color: var(--accent-ink); line-height: 1.1; }
+  .phases .w small { display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 3px; }
+  .phases p { margin: 0; font-size: 14.5px; }
+
+  .checks { columns: 2; column-gap: 32px; max-width: 90ch; }
+  @media (max-width: 720px) { .checks { columns: 1; } }
+  .checks li { break-inside: avoid; font-size: 14.5px; }
+
+  .sources { font-size: 13px; columns: 2; column-gap: 28px; max-width: none; }
+  @media (max-width: 720px) { .sources { columns: 1; } }
+  .sources li { break-inside: avoid; margin: 3px 0; overflow-wrap: anywhere; }
+  .sources a { color: var(--muted); }
+  .small { font-size: 13px; color: var(--muted); }
+</style>
+
+</head>
+<body>
+<div class="shell">
+<nav class="side" aria-label="Secciones">
+  <div class="brand">YPF Data Platform<br>Blueprint<small>deep-research · 2026-09-04</small></div>
+  <ol>
+    <li><a href="#resumen"><span class="n">01</span>Resumen ejecutivo</a></li>
+    <li><a href="#problemas"><span class="n">02</span>Problemas de datos de YPF</a></li>
+    <li><a href="#empleo"><span class="n">03</span>Qué pide YPF</a></li>
+    <li><a href="#datasets"><span class="n">04</span>Datasets reales</a></li>
+    <li><a href="#simular"><span class="n">05</span>Qué simular</a></li>
+    <li><a href="#limites"><span class="n">06</span>Límites de plataformas gratis</a></li>
+    <li><a href="#opciones"><span class="n">07</span>Opciones de proyecto</a></li>
+    <li><a href="#arquitectura"><span class="n">08</span>Arquitectura recomendada</a></li>
+    <li><a href="#matriz"><span class="n">09</span>Matriz de decisión</a></li>
+    <li><a href="#practicas"><span class="n">10</span>Prácticas a exhibir</a></li>
+    <li><a href="#roadmap"><span class="n">11</span>Roadmap</a></li>
+    <li><a href="#refutadas"><span class="n">12</span>Refutaciones y vacíos</a></li>
+    <li><a href="#fuentes"><span class="n">13</span>Fuentes</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Proyecto portfolio · Data Engineering end-to-end + ML · Oil &amp; Gas Argentina</div>
+  <h1>YPF Data Platform Blueprint</h1>
+  <p class="lede">Opciones de proyecto para demostrar ingeniería de datos de nivel producción sobre datos reales de la industria petrolera argentina, dimensionadas con las cifras públicas de YPF y ejecutables en AWS Free Tier, Databricks Free Edition y un clúster local con Docker.</p>
+  <div class="meta">
+    <span>48 agentes · 7 ángulos · 752 llamadas a herramientas</span>
+    <span>10 afirmaciones refutadas y corregidas</span>
+    <span>96 fuentes primarias</span>
+    <span>Informes completos en <code>research/</code></span>
+  </div>
+  <div class="legend">
+    <span class="b b-v">V verificado en fuente primaria</span>
+    <span class="b b-p">P parcial / con matiz</span>
+    <span class="b b-u">? no verificado</span>
+    <span class="b b-x">X refutado por verificación adversarial</span>
+    <span class="b b-a">SIM dato simulado y calibrado</span>
+  </div>
+</header>
+
+<!-- 01 -->
+<h2 id="resumen"><span class="n">01</span>Resumen ejecutivo</h2>
+<p class="lede">La narrativa de negocio y el dataset núcleo están sólidos. La infraestructura gratuita tiene tres restricciones duras que obligan a un diseño híbrido. Esas restricciones, bien explicadas, son el mejor argumento del proyecto.</p>
+
+<div class="stats">
+  <div class="stat"><div class="v">370.449</div><div class="l">filas de YPF S.A. en el CSV 2006 de producción por pozo (49% del total) <span class="b b-v">V</span></div></div>
+  <div class="stat"><div class="v">2006–2026</div><div class="l">rango mensual por pozo, 53 recursos CKAN, 38 columnas <span class="b b-v">V</span></div></div>
+  <div class="stat"><div class="v">13</div><div class="l">equipos de perforación operando en simultáneo desde el RTIC (16 = capacidad de diseño) <span class="b b-x">X corregido</span></div></div>
+  <div class="stat"><div class="v">318 MB</div><div class="l">telemetría real de pozos (3W Petrobras, CC BY 4.0), subset de 3 clases <span class="b b-v">V</span></div></div>
+  <div class="stat"><div class="v">6 meses</div><div class="l">ventana del AWS Free account plan; después la cuenta se cierra sola <span class="b b-v">V</span></div></div>
+</div>
+
+<div class="findings">
+  <div class="finding">
+    <div class="k">Existe telemetría real de pozos para el módulo streaming</div>
+    <p>El dataset 3W de Petrobras (GitHub, Parquet, 27 variables, 10 clases de eventos etiquetados por expertos, paper en Scientific Data 2026) tiene licencia CC BY 4.0 para datos y Apache 2.0 para código <span class="b b-v">V</span>. Reemplaza cualquier generador aleatorio y a Volve, cuyo acceso hoy pasa por Databricks Marketplace y cuya licencia completa no se pudo leer <span class="b b-u">?</span>.</p>
+  </div>
+  <div class="finding">
+    <div class="k">Databricks Free Edition no puede ser la capa de ingesta</div>
+    <p>La documentación oficial dice que el acceso saliente a internet está restringido a dominios de confianza <span class="b b-v">V</span>, la lista no es pública <span class="b b-u">?</span>, y el portal argentino fuerza HTTP plano. La ingesta va afuera (GitHub Actions o Docker) y entra por un Volume de Unity Catalog. La verificación por LinkedIn amplía el egress <span class="b b-p">P</span>.</p>
+  </div>
+  <div class="finding">
+    <div class="k">AWS no sostiene un portfolio gratis para siempre</div>
+    <p>Cita oficial: al expirar el free account plan la cuenta se cierra automáticamente y se pierden recursos y datos, con 90 días de gracia <span class="b b-v">V</span>. La vía sostenible es pasar a Paid plan y vivir dentro de las cuotas Always Free (Lambda, DynamoDB, Step Functions, SQS, EventBridge, Glue Data Catalog): USD 1 a 5 por mes estimados <span class="b b-u">?</span>.</p>
+  </div>
+  <div class="finding">
+    <div class="k">El stack de YPF tiene una sola pieza auditable: SAP S/4HANA</div>
+    <p>El Form 20-F FY2025 declara la implementación de SAP S/4HANA en 2025 para Downstream <span class="b b-v">V</span>. Azure, AWS, Databricks, Snowflake, Kafka, Spark y Palantir tienen cero apariciones en ese documento <span class="b b-v">V negativo</span>. El proyecto no debe venderse como réplica del stack de YPF, sino como plataforma de dominio O&amp;G sobre datos reales argentinos.</p>
+  </div>
+</div>
+
+<div class="note">
+  <p><strong>Recomendación en una línea.</strong> Híbrido en tres anillos: desarrollo e ingesta en Docker local (Kafka + Spark + MinIO + Iceberg + Trino), escaparate en Databricks Free Edition (Unity Catalog + SQL Warehouse + AI/BI) y una demo AWS efímera desplegada con Terraform (S3 + Lambda + Step Functions + Glue Catalog + Athena), con CI en GitHub Actions y observabilidad en Grafana Cloud Free.</p>
+</div>
+
+<!-- 02 -->
+<h2 id="problemas"><span class="n">02</span>Problemas de datos que YPF comunica públicamente</h2>
+<p>El desafío central que YPF cuenta en prensa es convertir telemetría de perforación y producción dispersa en Vaca Muerta en decisiones operativas en minutos. Sus centros de tiempo real son la mejor guía de dimensionamiento disponible.</p>
+
+<div class="tw"><table>
+  <thead><tr><th>Centro</th><th>Inauguración</th><th>Alcance</th><th>Datos y variables</th><th>Personas</th></tr></thead>
+  <tbody>
+    <tr><td><strong>RTIC Upstream</strong>, Torre YPF Puerto Madero</td><td>13-dic-2024 <span class="b b-v">V</span></td><td>13 equipos operando (16 de diseño) <span class="b b-x">X</span>; meta 200 a 210 pozos/año; 8 sets de fractura simultáneos</td><td>35 M de datos por pozo; más de 60 variables en tiempo real por equipo, 100+ variables y 80+ KPIs; enlace Starlink</td><td>88 profesionales, turnos 7×7</td></tr>
+    <tr><td><strong>RTIC Upstream Neuquén</strong></td><td>ago-2025 <span class="b b-v">V</span></td><td>2.000+ pozos, 100+ instalaciones, 290 camiones, 8 equipos de pulling</td><td>1,5 M de variables en tiempo real; 150+ cámaras; 13 drones</td><td>129 personas, 54 puestos</td></tr>
+    <tr><td><strong>RTIC Comercialización</strong>, piso 11</td><td>no confirmada <span class="b b-u">?</span></td><td>1.600+ estaciones, 2.400 camiones geolocalizados</td><td>datos por surtidor; conteo vehicular con 97% de correlación con ventas; micropricing con macro, FX y franja horaria; +35% de rentabilidad nocturna</td><td>no especificado</td></tr>
+    <tr><td><strong>RTOR</strong> Complejo Industrial La Plata</td><td>23-dic-2025 <span class="b b-x">X</span> (no marzo)</td><td>refinería de más de 210.000 bbl/día, 70% shale</td><td>"200.000 variables" y "+20% rentabilidad" no tienen respaldo <span class="b b-x">X</span>; sí: 180 km de fibra, 30 tableros de control</td><td>no especificado</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Traducción a desafíos de ingeniería</h3>
+<ul>
+  <li><strong>Series temporales multi-fuente con conectividad intermitente</strong> (Starlink): datos que llegan tarde, idempotencia, watermarks y reprocesos sin duplicar.</li>
+  <li><strong>Dos naturalezas de dato conviviendo</strong>: variables crudas de sensores y KPIs calculados. Conviene modelarlas como tablas separadas en silver <span class="b b-p">P</span>.</li>
+  <li><strong>Contexto operacional obligatorio</strong>: un dato de sensor sin pozo, pad, equipo y etapa de fractura no vale nada. Modelo dimensional con SCD2 sobre entidades de pozo.</li>
+  <li><strong>Coexistencia IT/OT</strong>: ERP (SAP S/4HANA confirmado), historiadores de planta y telemetría de campo con dueños distintos. Es el problema que resuelve un lakehouse con catálogo, linaje y contratos de datos.</li>
+  <li><strong>Datos fragmentados</strong>: el proyecto YPF-Globant "Digital Suppl.AI" (46 agentes de IA en 8 soluciones sobre compras, inventario y contratos) nombra la trazabilidad punta a punta como problema de fondo <span class="b b-v">V</span>.</li>
+  <li><strong>Calidad en declaraciones juradas</strong>: el dataset de fractura advierte "datos preliminares sujetos a revisión" y hay recursos 2024/2025 duplicados con ids distintos en CKAN <span class="b b-v">V</span>.</li>
+</ul>
+
+<!-- 03 -->
+<h2 id="empleo"><span class="n">03</span>Qué pide YPF en sus búsquedas</h2>
+<p>Ningún aviso de YPF encontrado nombra Databricks, Snowflake, Kafka, Spark, dbt, MLflow o Palantir <span class="b b-v">V negativo</span>. No hay base para un ranking por frecuencia. Lo que sí hay, ordenado por calidad de evidencia:</p>
+<div class="tw"><table>
+  <thead><tr><th>Señal</th><th>Evidencia</th><th>Fuente</th><th>Confianza</th></tr></thead>
+  <tbody>
+    <tr><td><strong>SAP S/4HANA</strong></td><td>"we completed the implementation of the system SAP S/4 Hana Solutions, to replace the commercial and stock systems related to the Downstream business segment"</td><td>Form 20-F FY2025 (SEC)</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td><strong>IA y agentes</strong></td><td>46 agentes en 8 soluciones agénticas; adopción de IA "via open source or commercial license agreements"</td><td>PRNewswire oct-2025; 20-F</td><td><span class="b b-v">V</span> existencia, stack no</td></tr>
+    <tr><td><strong>Bloque "Tecnología / Datos / IA"</strong></td><td>"2 años de experiencia comprobable en Tecnología / Datos / IA"; 10 vacantes (7 Buenos Aires, 3 Neuquén); inglés avanzado; híbrido</td><td>Programa Jóvenes en Tecnología (HiringRoom)</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td><strong>Analítica en tiempo real de pozos</strong></td><td>"modelo de operación en tiempo real, basado en datos, analítica avanzada e inteligencia artificial"; plataforma Corva renovada (anunciada 1-sep-2026)</td><td>Río Negro</td><td><span class="b b-v">V</span> concepto</td></tr>
+    <tr><td><strong>Azure OpenAI</strong></td><td>GAIA / Y-Click!, acuerdo 28-ago-2024, prototipo en 3 meses</td><td>ADN Sur</td><td><span class="b b-p">P</span> acotado a apps</td></tr>
+    <tr><td><strong>Power BI, AWS, Python, SQL</strong></td><td>avisos antiguos o de terceros; AWS aparece como partner de Globant, no de YPF</td><td>Veintitrés 2023, iProfesional, Bumeran (fetch vacío)</td><td><span class="b b-u">?</span></td></tr>
+  </tbody>
+</table></div>
+<p><strong>Cómo usarlo.</strong> El README debe decir que el stack se eligió por relevancia de mercado y por las dos únicas anclas públicas: SAP como fuente transaccional y una capa de BI. Un extractor "tipo SAP hacia el lake" y una capa de BI son las piezas con mejor justificación empírica del diseño. Salarios de referencia (El Cronista, 31-dic-2024 <span class="b b-x">X fecha corregida</span>): junior en tecnología cerca de ARS 2,0 M y senior entre ARS 4,0 y 5,0 M mensuales <span class="b b-v">V</span>.</p>
+
+<!-- 04 -->
+<h2 id="datasets"><span class="n">04</span>Inventario de datasets reales</h2>
+<p>Hay datos reales y grandes. El dataset núcleo se verificó hasta el byte: descarga completa del CSV 2006, conteo de filas y filtro por empresa.</p>
+
+<div class="tw"><table>
+  <thead><tr><th>Dataset</th><th>Origen</th><th>Formato</th><th>Tamaño</th><th>Columnas clave</th><th>Frecuencia</th><th>Filtro YPF</th><th>Estado</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Producción de petróleo y gas por pozo (Cap. IV)</strong></td><td>datos.energia.gob.ar, pkg <span class="mono">produccion-de-petroleo-y-gas-por-pozo</span>, 53 recursos</td><td>CSV anual (+SHP)</td><td class="num">2006: 235,9 MB, 748.653 filas<br>2024: 319,9 MB</td><td><span class="mono">idempresa, anio, mes, idpozo, prod_pet, prod_gas, prod_agua, iny_*, tef, vida_util, tipoextraccion, tipoestado, tipopozo, empresa, sigla, formacion, areayacimiento, cuenca, provincia, tipo_de_recurso, sub_tipo_recurso</span></td><td>mensual por pozo, 2006 a 2026</td><td><span class="mono">empresa == 'YPF S.A.'</span></td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Recursos hermanos: No Convencional (act. 2026-08-22), catálogo maestro de pozos con geometría, agregados por yacimiento y formación, padrón con fecha de primera producción, listado de pozos por operadora</td><td>mismo paquete</td><td>CSV / SHP</td><td class="num">?</td><td>el padrón de primera producción es la clave para curvas de declino</td><td>mensual / estático</td><td>por operadora</td><td><span class="b b-v">V</span> existencia, esquema <span class="b b-u">?</span></td></tr>
+    <tr><td><strong>Fractura de pozos (Adjunto IV)</strong></td><td>pkg <span class="mono">datos-de-fractura-de-pozos-adjunto-iv</span></td><td>CSV</td><td class="num">?</td><td>longitud de rama horizontal, etapas, arena nacional/importada (t), agua (m³), CO₂, presión máxima (psi), potencia (hp), fechas, empresa</td><td>diaria (act. 2026-09-04)</td><td>por empresa</td><td><span class="b b-v">V</span>, "preliminares"</td></tr>
+    <tr><td><strong>Perforación de pozos</strong> (21 recursos)</td><td>pkg <span class="mono">perforacion-de-pozos-de-petroleo-y-gas</span></td><td>CSV / ZIP</td><td class="num">?</td><td>metros perforados por empresa, pozos terminados por tipo, pozos en perforación</td><td>mensual desde 2009</td><td>por empresa</td><td><span class="b b-v">V</span> existencia</td></tr>
+    <tr><td><strong>Precios en surtidor (Res. 314/2016)</strong></td><td>pkg <span class="mono">precios-en-surtidor</span></td><td>CSV, datastore activo</td><td class="num">?</td><td>precio por estación, bandera, producto, geolocalización; vigentes e históricos</td><td>continua</td><td>por bandera</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td><strong>Precios y volúmenes EESS (Res. 1104/04)</strong>, 29 recursos</td><td>pkg <span class="mono">precios-eess---resolucion-1104-04</span></td><td>CSV + SHP</td><td class="num">?</td><td>precio final con impuestos, volúmenes vendidos, operadores</td><td>mensual, 2004 a 2024+</td><td>por bandera</td><td><span class="b b-v">V</span>; 8 de 29 sin datastore</td></tr>
+    <tr><td><strong>Reservas de petróleo y gas</strong>, 40 recursos</td><td>energia.gob.ar (ZIP anual)</td><td>ZIP con 1 XLSX de 2 hojas, encabezado jerárquico de 7 filas</td><td class="num">2024: 415 KB</td><td><span class="mono">OPERADOR, CUENCA, PROVINCIA, CONCESIÓN O PERMISO, YACIMIENTO</span> × Conv./No conv. × Comprobadas/Probables/Posibles × PET/GAS</td><td>anual, 2004 a 2024</td><td><span class="mono">OPERADOR = 'YPF S.A.'</span></td><td><span class="b b-v">V</span> abierto; filas fusionadas 1, 3, 4, 5 <span class="b b-x">X</span></td></tr>
+    <tr><td><strong>3W Petrobras</strong> (telemetría de pozo)</td><td>github.com/petrobras/3W</td><td>Parquet (brotli)</td><td class="num">1,87 GB total; clases 0+2+7: 318 MB</td><td><span class="mono">timestamp, P-PDG, P-TPT, T-TPT, P-MON-CKP, T-JUS-CKP, P-JUS-CKGL, QGL, ABER-CKP, ESTADO-*, class, state</span> (27 variables)</td><td>alta frecuencia; ~1 Hz no confirmado <span class="b b-u">?</span></td><td>n/a (Brasil)</td><td><span class="b b-v">V</span> CC BY 4.0</td></tr>
+    <tr><td>SEC EDGAR, 20-F de YPF</td><td>data.sec.gov, CIK 0000904851</td><td>JSON / HTML / XBRL</td><td class="num">20-F FY2025: 10,9 MB</td><td>submissions, companyfacts, companyconcept</td><td>por presentación</td><td>directo</td><td><span class="b b-v">V</span> sin API key</td></tr>
+    <tr><td>EIA Open Data (Brent, WTI)</td><td>eia.gov/opendata</td><td>JSON / bulk</td><td class="num">chico</td><td>series spot</td><td>diaria</td><td>n/a</td><td><span class="b b-v">V</span> key gratis; rate limits <span class="b b-u">?</span></td></tr>
+    <tr><td>BCRA estadísticas cambiarias</td><td>api.bcra.gob.ar</td><td>JSON</td><td class="num">chico</td><td><span class="mono">/Maestros/Divisas, /Cotizaciones/{codMoneda}</span></td><td>diaria</td><td>n/a</td><td><span class="b b-v">V</span> endpoints; límites <span class="b b-u">?</span></td></tr>
+    <tr><td>Open-Meteo histórico (ERA5-Land)</td><td>open-meteo.com</td><td>JSON / CSV</td><td class="num">por lat-long</td><td>temperatura, viento, precipitación, radiación; grilla 0,1° (11 km)</td><td>horaria desde 1950</td><td>n/a</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>CAMMESA vía datos.energia.gob.ar</td><td>pkg <span class="mono">publicaciones-cammesa</span></td><td>?</td><td class="num">?</td><td>generación por máquina, balance MEM</td><td>?</td><td>n/a</td><td>portal accesible <span class="b b-x">X corregido</span>; contenido <span class="b b-u">?</span></td></tr>
+  </tbody>
+</table></div>
+
+<div class="note warn">
+  <p><strong>Trampa de ingesta verificada.</strong> Todo el portal responde en HTTP plano: <code>https://datos.energia.gob.ar</code> devuelve 301 hacia <code>http://</code> y envía <code>Strict-Transport-Security: max-age=0</code>. Un cliente que reescriba a HTTPS falla. Usar <code>requests</code> con redirecciones habilitadas y sin forzar upgrade, y documentarlo como decisión.</p>
+</div>
+
+<h3>Combinaciones que hacen al proyecto interesante</h3>
+<ol>
+  <li><strong>Producción × Fractura × Padrón de primera producción</strong>: feature store de no convencional con el eje normalizado a "meses desde primera producción", base de toda type curve.</li>
+  <li><strong>Producción × Reservas (XLSX)</strong>: tasa de reposición de reservas por operador y cuenca. Obliga a despivotar el encabezado jerárquico, ejercicio vistoso y real.</li>
+  <li><strong>Precios en surtidor × Volúmenes EESS × BCRA × EIA</strong>: márgenes y elasticidad por bandera y provincia, réplica honesta del micropricing del RTIC de Comercialización.</li>
+  <li><strong>3W (streaming) × catálogo de pozos de Vaca Muerta</strong>: telemetría real replayed a Kafka y mapeada a <code>idpozo</code> argentinos, declarando el mapeo como sintético.</li>
+  <li><strong>20-F (XBRL) × producción física</strong>: reconciliación entre lo declarado al regulador argentino y lo reportado a la SEC. Calidad de datos entre dominios que casi ningún portfolio muestra.</li>
+  <li><strong>Perforación × Fractura diaria</strong>: indicador tipo "Toyota Well" (meta pública de reducir el ciclo de construcción de pozos 15 a 30% <span class="b b-v">V</span>).</li>
+</ol>
+
+<!-- 05 -->
+<h2 id="simular"><span class="n">05</span>Qué simular, con qué fidelidad y cómo calibrarlo</h2>
+<p>El dato núcleo es mensual por pozo. No alcanza para el módulo que más impresiona, el de tiempo real. La estrategia correcta tiene tres capas, con una regla de oro: cada tabla lleva <code>data_origin ∈ {real, simulated, derived}</code> y el README publica la tabla de trazabilidad.</p>
+
+<div class="tw"><table>
+  <thead><tr><th>Capa</th><th>Dato</th><th>Fidelidad</th><th>Parámetros de calibración (anclados en cifras verificadas)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>A. Telemetría de pozo productor</strong></td><td>3W Petrobras replayed a Kafka <span class="b b-v">V real</span></td><td>máxima, no se simula</td><td>solo la velocidad de replay, parametrizable, porque la frecuencia nativa no está confirmada <span class="b b-u">?</span></td></tr>
+    <tr><td><strong>B. Telemetría de perforación</strong></td><td>generador propio o <span class="mono">drilling-telemetry-simulator</span> (Apache 2.0) <span class="b b-a">SIM</span></td><td>calibrada contra agregados reales</td><td>13 equipos concurrentes (particiones Kafka), 60 a 100 variables crudas + 80 KPIs, 35 M registros por pozo, 200 a 210 pozos/año, tramos ≤800 m / 800 a 2.300 m / hasta 8.300 m, laterales hasta 5.170 m, 8 sets de fractura, cortes de enlace Starlink como late data</td></tr>
+    <tr><td><strong>C1. SCADA de refinería</strong></td><td>tags sintéticos <span class="b b-a">SIM</span></td><td>baja, parametrizada</td><td>30 tableros como 30 grupos lógicos; <span class="mono">N_TAGS</span> configurable; balance de masa que cierre contra 210.000 bbl/día. No usar "200.000 variables" <span class="b b-x">X</span></td></tr>
+    <tr><td><strong>C2. Transacciones por surtidor</strong></td><td>tickets sintéticos sobre precios y volúmenes reales <span class="b b-a">SIM</span></td><td>alta en agregados, sintética en el detalle</td><td>1.600 estaciones; el total mensual por estación y producto debe cuadrar con EESS (test de reconciliación); serie de conteo vehicular con correlación objetivo 0,97; perfil horario con +35% nocturno como parámetro</td></tr>
+  </tbody>
+</table></div>
+<p><strong>Lo que distingue un simulador de juguete de uno defendible</strong> es un test de reconciliación que falla si la simulación se aleja del agregado real: la producción acumulada simulada de un pozo converge al <code>prod_pet</code> mensual de ese <code>idpozo</code>; rama, etapas y arena se muestrean de la distribución empírica del CSV de fractura filtrado por YPF y formación.</p>
+
+<!-- 06 -->
+<h2 id="limites"><span class="n">06</span>Límites verificados de las plataformas gratuitas</h2>
+
+<h3>AWS Free Tier (modelo vigente desde el 16-jul-2025)</h3>
+<ul>
+  <li>USD 100 al registrarse "regardless of your account plan" más hasta USD 100 por actividades <span class="b b-v">V</span>. El free account plan termina a los 6 meses o al agotar créditos, lo que ocurra primero <span class="b b-v">V</span>.</li>
+  <li>"After your free account plan expires, your account closes automatically, and you lose access to your resources and data" con 90 días de retención <span class="b b-v">V</span>.</li>
+  <li>Free plan = solo Always Free; Paid plan = Always Free + trials cortos. Bedrock AgentCore es exclusivo de Paid plan <span class="b b-v">V</span>. Glue, Athena, Kinesis, Step Functions, EMR Serverless y MWAA no se pudieron confirmar dentro del Free account plan <span class="b b-u">?</span>.</li>
+</ul>
+<div class="tw"><table>
+  <thead><tr><th>Servicio</th><th>Tipo</th><th>Límite exacto</th><th>Estado</th></tr></thead>
+  <tbody>
+    <tr><td>Step Functions</td><td>Always Free explícito</td><td>4.000 transiciones/mes, "available indefinitely"; luego USD 0,000025 por transición</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>DynamoDB</td><td>Always Free</td><td>25 WCU, 25 RCU, 25 GB, 2,5 M lecturas de stream</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Lambda</td><td>Always Free</td><td>1 M requests y 400.000 GB-s por mes</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>SQS / CloudWatch / EventBridge Scheduler</td><td>Always Free</td><td>1 M requests; 10 métricas, 10 alarmas, 5 GB de logs; 14 M invocaciones de Scheduler</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Glue Data Catalog</td><td>Always Free implícito</td><td>primer millón de objetos y de accesos gratis</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Glue ETL, crawlers, Data Quality</td><td>sin free tier</td><td>USD 0,44 por DPU-hora, por segundo; ejemplo oficial: 15 min × 6 DPU = USD 0,66</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Athena</td><td>sin free tier</td><td>USD 5 por TB escaneado</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>S3</td><td>12 meses</td><td>5 GB, 20K GET, 2K PUT</td><td><span class="b b-p">P</span></td></tr>
+    <tr><td>Redshift Serverless</td><td>trial</td><td>USD 300 de crédito por 90 días, solo cuentas nuevas en Redshift</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>CloudFormation</td><td>Always Free</td><td>recursos <span class="mono">AWS::*</span> sin cargo del motor</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Kinesis, EMR Serverless, MWAA, SageMaker, Fargate</td><td>?</td><td>no obtenidos en fuente oficial en esta corrida; MWAA y MSK son trampas de costo conocidas</td><td><span class="b b-u">?</span></td></tr>
+  </tbody>
+</table></div>
+<p><strong>Costo estimado</strong> de un lakehouse serverless modesto (10 GB escaneados al mes en Athena, 2 jobs de Glue de 10 min con 2 DPU): unos USD 0,35 por mes en Athena + Glue y el resto dentro de Always Free. Total en Paid plan con tráfico bajo: USD 1 a 5 por mes, estimación propia <span class="b b-u">?</span>. Riesgos reales: NAT Gateway, Elastic IPs huérfanas, Athena sin particionar, crawlers en loop.</p>
+
+<h3>Databricks Free Edition</h3>
+<div class="tw"><table>
+  <thead><tr><th>Recurso</th><th>Límite (cita oficial)</th><th>Estado</th></tr></thead>
+  <tbody>
+    <tr><td>SQL Warehouse</td><td>"One SQL warehouse, limited to a 2X-Small cluster size"</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Jobs</td><td>"Max of 5 concurrent job tasks per account"</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Lakeflow Declarative Pipelines</td><td>"One active pipeline per pipeline type"</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Compute</td><td>solo serverless, "limited compute size and usage", sin cifra</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Egress</td><td>"outbound internet access is restricted to a limited set of trusted domains"; la allowlist no es pública; verificación LinkedIn la amplía</td><td><span class="b b-v">V</span> / <span class="b b-u">?</span></td></tr>
+    <tr><td>Databricks Apps</td><td>hasta 3 por cuenta, corren "up to 24 hours" tras cada despliegue</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>AI Search, Lakebase, workspace</td><td>1 endpoint con 1 search unit; 1 proyecto Lakebase; 1 workspace y 1 metastore</td><td><span class="b b-v">V</span></td></tr>
+    <tr><td>Uso comercial e inactividad</td><td>"may not be used for commercial purposes"; cuentas inactivas pueden borrarse, sin plazo</td><td><span class="b b-v">V</span> cita; portfolio = zona gris <span class="b b-u">?</span></td></tr>
+    <tr><td>Asset Bundles / Terraform</td><td>error reproducido en comunidad al descargar Terraform desde releases.hashicorp.com; la causa exacta es hipótesis</td><td><span class="b b-p">P</span></td></tr>
+    <tr><td>Storage, MLflow, Model Serving, Auto Loader, Structured Streaming</td><td>no documentados por edición</td><td><span class="b b-u">?</span></td></tr>
+  </tbody>
+</table></div>
+
+<h3>SaaS gratuitos complementarios</h3>
+<div class="tw"><table>
+  <thead><tr><th>Servicio</th><th>Límites verificados</th><th>Rol en el proyecto</th></tr></thead>
+  <tbody>
+    <tr><td><strong>GitHub Actions</strong></td><td>minutos ilimitados en repos públicos con runners estándar; 2.000 min/mes en privados <span class="b b-v">V</span></td><td>capa de ingesta programada (egress libre) + CI/CD + tests</td></tr>
+    <tr><td><strong>Neon</strong> Postgres</td><td>0,5 GB por proyecto, 100 CU-hours/mes, branches, autosuspend a 5 min <span class="b b-v">V</span></td><td>metadata del pipeline, serving, branches por entorno</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>500 MB de DB, 5 GB de egress, 2 proyectos, pausa a la semana de inactividad <span class="b b-v">V</span></td><td>API pública si el proyecto expone backend</td></tr>
+    <tr><td><strong>Grafana Cloud Free</strong></td><td>10k series, 50 GB de logs, 50 GB de traces, retención 14 días <span class="b b-v">V</span></td><td>observabilidad: métricas de jobs, frescura, alertas de SLA</td></tr>
+    <tr><td><strong>LocalStack Hobby</strong></td><td>gratis; incluye S3, Lambda, SQS y Kinesis <span class="b b-x">X corregido</span>; Glue y Athena solo en plan Ultimate (USD 89/mes)</td><td>emulación en CI; Trino reemplaza a Athena en local</td></tr>
+    <tr><td><strong>Moto</strong></td><td>Apache 2.0, instalación granular <span class="b b-v">V</span></td><td>tests unitarios de S3, DynamoDB, SQS, Lambda</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Consecuencias de diseño</h3>
+<ul>
+  <li>Un solo SQL warehouse y 5 tareas concurrentes: <strong>un pipeline secuencial bronze → silver → gold</strong> con flujos internos, no un pipeline por dominio.</li>
+  <li>Las Apps mueren a las 24 h: el dashboard va en AI/BI Dashboards, Streamlit o Grafana, o se redespliega por cron.</li>
+  <li>La ingesta va fuera de Databricks: GitHub Actions o Docker descargan, validan y suben a un Volume de Unity Catalog por CLI o REST.</li>
+  <li><strong>Prueba de 10 minutos antes de fijar el diseño</strong>: crear la cuenta, verificar por LinkedIn y ejecutar un <code>requests.get('http://datos.energia.gob.ar/...')</code> en un notebook. Vale más que cualquier búsqueda documental.</li>
+  <li>Nada persiste por definición: Databricks borra por inactividad y AWS cierra la cuenta. Todo reproducible desde cero con scripts.</li>
+</ul>
+
+<!-- 07 -->
+<h2 id="opciones"><span class="n">07</span>Opciones de proyecto</h2>
+<p>Cuatro proyectos completos, cada uno end-to-end y defendible por sí solo. Comparten la misma base de plataforma (sección 08) y difieren en el problema de negocio, el módulo de ML y el riesgo técnico. La recomendación está al final.</p>
+
+<div class="option rec">
+  <div class="head"><h3>A · RTIC-AR</h3><span class="tag">upstream · batch + streaming · recomendado como núcleo</span><span class="b b-a">recomendado</span></div>
+  <p><strong>Problema de negocio.</strong> Replicar la función núcleo del Real Time Intelligence Center: detectar desvíos operativos en pozos antes de que se conviertan en pérdida de producción, sobre el universo real de pozos de YPF en Argentina.</p>
+  <div class="grid">
+    <div>
+      <h4>Datos</h4>
+      <ul>
+        <li>Producción por pozo 2006 a 2026, filtro <code>empresa = 'YPF S.A.'</code> <span class="b b-v">V</span></li>
+        <li>Fractura (Adjunto IV, diario) y padrón de primera producción <span class="b b-v">V</span></li>
+        <li>Catálogo maestro de pozos con geometría (SHP) <span class="b b-v">V</span></li>
+        <li>3W Petrobras replayed a Kafka como telemetría de pozo <span class="b b-v">V real</span></li>
+        <li>Telemetría de perforación calibrada (13 equipos, 60 a 100 variables) <span class="b b-a">SIM</span></li>
+      </ul>
+      <h4>Módulos</h4>
+      <ul>
+        <li>Backfill paralelo 2006 a 2026 particionado por año (cada CSV contiene solo su año <span class="b b-v">V</span>)</li>
+        <li>Medallion en Iceberg: bronze crudo, silver con contratos, gold dimensional (dim_pozo SCD2, fact_produccion_mensual, fact_evento_pozo)</li>
+        <li>Streaming: replay → Kafka (13 particiones) → Spark Structured Streaming con watermarks y late data → Iceberg</li>
+        <li>Calidad: unicidad <code>idpozo+anio+mes</code>, rangos, integridad referencial, deduplicación de recursos 2024/2025 con ids distintos</li>
+      </ul>
+    </div>
+    <div>
+      <h4>ML</h4>
+      <ul>
+        <li>Clasificación multiclase de eventos de pozo sobre 3W (10 clases, ventanas WINDOW/STEP del toolkit oficial), clases desbalanceadas, métricas más allá del accuracy</li>
+        <li>Registro en MLflow, inferencia batch sobre la capa gold y monitoreo de drift</li>
+        <li>Anclaje YPF: agentes Nova y Argus, que "anticipan desvíos analizando grandes volúmenes de datos operativos" <span class="b b-v">V</span></li>
+      </ul>
+      <h4>Por qué impresiona a YPF</h4>
+      <p>Es el caso emblemático de la compañía, dimensionado con sus propias cifras públicas y con telemetría real de pozos petroleros, no con números aleatorios. Demuestra batch masivo, streaming con estado, modelado dimensional y MLOps en un solo hilo de negocio.</p>
+      <h4>Riesgos</h4>
+      <ul>
+        <li>Frecuencia de muestreo de 3W no confirmada <span class="b b-u">?</span>: documentar como parámetro</li>
+        <li>RAM local limita brokers y executors: perfil streaming bajo demanda</li>
+        <li>Structured Streaming en Free Edition no documentado <span class="b b-u">?</span>: el streaming vive en local</li>
+      </ul>
+    </div>
+  </div>
+  <div class="scores">
+    <span>Complejidad <b>alta</b><span class="bar"><i style="width:90%"></i></span></span>
+    <span>Riesgo técnico <b>medio</b><span class="bar"><i style="width:55%"></i></span></span>
+    <span>Datos reales <b>85%</b><span class="bar"><i style="width:85%"></i></span></span>
+    <span>RAM local <b>12 a 16 GB</b></span>
+    <span>Costo cloud <b>USD 0 a 5/mes</b></span>
+    <span>Duración <b>10 a 12 semanas</b></span>
+  </div>
+</div>
+
+<div class="option">
+  <div class="head"><h3>B · Surtidor Analytics + SAP-to-Lake</h3><span class="tag">downstream · CDC + modelado dimensional + pricing</span></div>
+  <p><strong>Problema de negocio.</strong> Micropricing y forecasting de demanda por estación, producto y franja horaria, con márgenes calculados contra el crudo de referencia y el tipo de cambio, alimentado desde un sistema comercial tipo SAP sin impactar al transaccional.</p>
+  <div class="grid">
+    <div>
+      <h4>Datos</h4>
+      <ul>
+        <li>Precios en surtidor vigentes e históricos (datastore activo) <span class="b b-v">V</span></li>
+        <li>Precios y volúmenes EESS 2004 a 2024, con ruta legacy para 8 de 29 recursos <span class="b b-v">V</span></li>
+        <li>BCRA cotizaciones, EIA Brent/WTI, Open-Meteo <span class="b b-v">V</span></li>
+        <li>Postgres con esquema comercial inspirado en SAP (materiales, clientes, pedidos, movimientos de stock), calibrado contra EESS <span class="b b-a">SIM</span></li>
+        <li>Tickets por surtidor y conteo vehicular con correlación objetivo 0,97 <span class="b b-a">SIM</span></li>
+      </ul>
+      <h4>Módulos</h4>
+      <ul>
+        <li>Ingesta dual: API datastore paginada + parser CSV legacy</li>
+        <li>CDC: Postgres → Debezium → Kafka → Spark → Iceberg (perfil <code>compose.cdc</code>)</li>
+        <li>dbt con modelo Kimball: dim_estacion, dim_producto, dim_fecha, fact_venta, fact_precio; SCD2 en estaciones</li>
+        <li>Serving en Neon o Supabase; dashboard de márgenes por bandera y provincia</li>
+      </ul>
+    </div>
+    <div>
+      <h4>ML</h4>
+      <ul>
+        <li>Forecasting jerárquico de demanda (provincia → estación → producto) con features macro, FX, clima y calendario</li>
+        <li>Elasticidad precio-volumen por bandera; simulación de escenarios de pricing</li>
+        <li>Anclaje YPF: micropricing del RTIC de Comercialización, +35% de rentabilidad nocturna <span class="b b-v">V</span></li>
+      </ul>
+      <h4>Por qué impresiona a YPF</h4>
+      <p>SAP S/4HANA es la única tecnología del stack de YPF confirmada ante un regulador. Un extractor SAP hacia el lake con CDC es el caso más defendible del portfolio, y el pricing replica resultados que la propia compañía publicó.</p>
+      <h4>Riesgos</h4>
+      <ul>
+        <li>Rate limits de BCRA y EIA no documentados <span class="b b-u">?</span></li>
+        <li>La base transaccional es sintética: declararlo y no insinuar acceso al SAP real</li>
+        <li>Debezium + Kafka + Postgres suman RAM</li>
+      </ul>
+    </div>
+  </div>
+  <div class="scores">
+    <span>Complejidad <b>alta</b><span class="bar"><i style="width:80%"></i></span></span>
+    <span>Riesgo técnico <b>bajo-medio</b><span class="bar"><i style="width:40%"></i></span></span>
+    <span>Datos reales <b>60%</b><span class="bar"><i style="width:60%"></i></span></span>
+    <span>RAM local <b>12 a 14 GB</b></span>
+    <span>Costo cloud <b>USD 0 a 5/mes</b></span>
+    <span>Duración <b>8 a 10 semanas</b></span>
+  </div>
+</div>
+
+<div class="option">
+  <div class="head"><h3>C · Vaca Muerta Decline Lab</h3><span class="tag">upstream · ML-heavy · forecasting y MLOps</span></div>
+  <p><strong>Problema de negocio.</strong> Estimar el recupero final (EUR) y construir type curves por formación y yacimiento a partir del diseño de completación, para priorizar inversión en desarrollo de no convencional.</p>
+  <div class="grid">
+    <div>
+      <h4>Datos</h4>
+      <ul>
+        <li>Producción por pozo + recurso No Convencional (act. 2026-08-22) <span class="b b-v">V</span></li>
+        <li>Fractura: rama horizontal, etapas, arena, agua, presión, potencia <span class="b b-v">V</span></li>
+        <li>Padrón de primera producción, agregados por yacimiento y antigüedad, trayectorias de pozo <span class="b b-v">V</span> existencia</li>
+        <li>Open-Meteo ERA5-Land por yacimiento (efecto clima) <span class="b b-v">V</span></li>
+      </ul>
+      <h4>Módulos</h4>
+      <ul>
+        <li>Feature store en gold: producción normalizada a meses desde primera producción, features de completación por pozo</li>
+        <li>Pipeline de entrenamiento distribuido en Spark (miles de pozos) con MLflow tracking y registry</li>
+        <li>Batch inference mensual, backtesting rodante y monitoreo de drift</li>
+        <li>Tests de datos antes de entrenar (contratos y expectativas)</li>
+      </ul>
+    </div>
+    <div>
+      <h4>ML</h4>
+      <ul>
+        <li>Baselines físicos Arps, Duong y SEDM ajustados por pozo</li>
+        <li>Modelo de productividad a 12 meses por diseño de completación con gradient boosting + SHAP (equivalente analítico de "Toyota Well")</li>
+        <li>Comparación con secuenciales (GRU) para curvas tempranas; reportar solo métricas propias, no hay benchmarks públicos verificados <span class="b b-u">?</span></li>
+        <li>Anclaje YPF: modelo predictivo entrenado con "más de mil pozos perforados" <span class="b b-v">V</span></li>
+      </ul>
+      <h4>Por qué impresiona a YPF</h4>
+      <p>Es la analítica que efectivamente hace una operadora de shale. Muestra MLOps completo sobre datos reales de la cuenca donde YPF concentra su crecimiento.</p>
+      <h4>Riesgos</h4>
+      <ul>
+        <li>Semántica exacta de <code>tef</code> y <code>vida_util</code> y unidades sin resolver <span class="b b-u">?</span></li>
+        <li>Dato mensual limita el ajuste temprano de la curva</li>
+        <li>Menos superficie de ingeniería de datos que A o B si no se integra a la plataforma</li>
+      </ul>
+    </div>
+  </div>
+  <div class="scores">
+    <span>Complejidad <b>media-alta</b><span class="bar"><i style="width:70%"></i></span></span>
+    <span>Riesgo técnico <b>bajo</b><span class="bar"><i style="width:30%"></i></span></span>
+    <span>Datos reales <b>100%</b><span class="bar"><i style="width:100%"></i></span></span>
+    <span>RAM local <b>8 a 12 GB</b></span>
+    <span>Costo cloud <b>USD 0 a 3/mes</b></span>
+    <span>Duración <b>6 a 8 semanas</b></span>
+  </div>
+</div>
+
+<div class="option">
+  <div class="head"><h3>D · Reserve Ledger + Energy Copilot</h3><span class="tag">gobernanza · semi-estructurados · reconciliación regulatoria · RAG</span></div>
+  <p><strong>Problema de negocio.</strong> Calcular la tasa de reposición de reservas de YPF por cuenca, provincia y concesión con trazabilidad auditable desde el archivo oficial hasta el KPI, reconciliar con lo reportado a la SEC, y responder preguntas sobre el corpus regulatorio con citas verificables.</p>
+  <div class="grid">
+    <div>
+      <h4>Datos</h4>
+      <ul>
+        <li>Reservas 2004 a 2024: ZIP → XLSX de 2 hojas, encabezado jerárquico de 7 filas <span class="b b-v">V</span></li>
+        <li>Producción por pozo agregada por operador y cuenca <span class="b b-v">V</span></li>
+        <li>20-F de YPF vía EDGAR (XBRL companyfacts, sin API key) <span class="b b-v">V</span></li>
+        <li>Notas y metadatos CKAN, boletines, estándares OSDU/WITSML como corpus</li>
+      </ul>
+      <h4>Módulos</h4>
+      <ul>
+        <li>Parser de despivoteo ancho → largo (openpyxl o polars) con tests por año</li>
+        <li>Contratos de datos versionados y linaje en Unity Catalog / OpenLineage</li>
+        <li>dbt con tests de reconciliación entre regulador argentino y SEC; alertas de discrepancia</li>
+        <li>RAG con evaluación sobre set de preguntas de referencia y citación obligatoria</li>
+      </ul>
+    </div>
+    <div>
+      <h4>ML / IA</h4>
+      <ul>
+        <li>Detección de outliers en declaraciones juradas y de duplicados entre recursos</li>
+        <li>Embeddings + Databricks AI Search (1 endpoint) o índice vectorial local; text-to-SQL sobre gold</li>
+        <li>Anclaje YPF: GAIA sobre Azure OpenAI y asistente conversacional del RTIC <span class="b b-v">V</span></li>
+      </ul>
+      <h4>Por qué impresiona a YPF</h4>
+      <p>Es el tipo de dato semi-estructurado y regulado que rompe pipelines reales, y cruza dos reportes oficiales. Muestra gobernanza y calidad, lo que más valora una operadora que declara "datos fragmentados" como problema.</p>
+      <h4>Riesgos</h4>
+      <ul>
+        <li>El layout del XLSX puede variar entre años, solo se verificó 2024 <span class="b b-u">?</span></li>
+        <li>Un RAG que alucina cifras destruye la credibilidad del resto del proyecto: guardrails y evaluación no negociables</li>
+        <li>Menos "big data" en volumen; compensar integrándolo a la plataforma</li>
+      </ul>
+    </div>
+  </div>
+  <div class="scores">
+    <span>Complejidad <b>media</b><span class="bar"><i style="width:60%"></i></span></span>
+    <span>Riesgo técnico <b>medio</b><span class="bar"><i style="width:50%"></i></span></span>
+    <span>Datos reales <b>100%</b><span class="bar"><i style="width:100%"></i></span></span>
+    <span>RAM local <b>8 GB</b></span>
+    <span>Costo cloud <b>USD 0/mes</b></span>
+    <span>Duración <b>5 a 7 semanas</b></span>
+  </div>
+</div>
+
+<h3>Comparación</h3>
+<div class="tw"><table>
+  <thead><tr><th>Criterio</th><th>A · RTIC-AR</th><th>B · Surtidor + SAP-to-Lake</th><th>C · Decline Lab</th><th>D · Reserve Ledger + Copilot</th></tr></thead>
+  <tbody>
+    <tr><td>Volumen de datos reales</td><td>alto (GB por año + 318 MB streaming)</td><td>medio</td><td>alto</td><td>bajo</td></tr>
+    <tr><td>Streaming real</td><td>sí, con estado</td><td>sí, CDC</td><td>no</td><td>no</td></tr>
+    <tr><td>Modelado dimensional</td><td>sí</td><td>sí, el más completo</td><td>feature store</td><td>sí, regulado</td></tr>
+    <tr><td>MLOps</td><td>clasificación + drift</td><td>forecasting</td><td>el más completo</td><td>RAG + outliers</td></tr>
+    <tr><td>Gobernanza y calidad</td><td>media</td><td>media</td><td>media</td><td>la más completa</td></tr>
+    <tr><td>Anclaje en un caso público de YPF</td><td>RTIC (el más fuerte)</td><td>RTIC Comercialización + SAP 20-F</td><td>modelo "más de mil pozos"</td><td>GAIA + 20-F</td></tr>
+    <tr><td>Riesgo de parecer un tutorial</td><td>bajo</td><td>bajo</td><td>medio</td><td>medio-alto si el RAG es flojo</td></tr>
+  </tbody>
+</table></div>
+
+<div class="note">
+  <p><strong>Recomendación.</strong> Construir <strong>A como plataforma núcleo</strong> (ingesta, medallion, streaming, catálogo, CI/CD, observabilidad) e incorporar como módulos sobre la misma plataforma <strong>el despivoteo de Reservas y los contratos de datos de D</strong> (2 semanas) y <strong>el feature store y la curva de declino de C</strong> (3 semanas). B queda como extensión si sobra máquina y tiempo; el copilot de D solo si se puede evaluar con rigor. Así el repositorio cuenta una sola historia: la plataforma de datos del upstream de una operadora, con un caso de ML de negocio y una pieza de gobernanza regulatoria.</p>
+</div>
+
+<!-- 08 -->
+<h2 id="arquitectura"><span class="n">08</span>Arquitectura recomendada: híbrido en tres anillos</h2>
+<p>Cada anillo responde a una restricción verificada. El local existe porque AWS se cierra a los 6 meses y Databricks no puede ingerir; Databricks existe porque Unity Catalog y el SQL Warehouse son el mejor escaparate gratuito; AWS existe porque hay que demostrar cloud-nativo con IaC dentro de la ventana de crédito.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 1000 620" role="img" aria-label="Tres anillos: local permanente con Docker, escaparate en Databricks Free Edition y demo efímera en AWS; la capa gold local se publica a los otros dos anillos y un repositorio público gobierna todo con CI.">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#C8731A"/>
+    </marker>
+  </defs>
+  <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" fill="currentColor">
+
+    <!-- Repo column -->
+    <rect x="16" y="24" width="150" height="572" rx="6" fill="none" stroke="currentColor" stroke-dasharray="4 4" opacity=".6"/>
+    <text x="91" y="48" text-anchor="middle" font-weight="600" font-size="13">Repo público (GitHub)</text>
+    <text x="91" y="66" text-anchor="middle" font-size="11" opacity=".75">código · Terraform · dbt</text>
+    <rect x="30" y="86" width="122" height="46" rx="4" fill="none" stroke="currentColor"/>
+    <text x="91" y="105" text-anchor="middle">GitHub Actions CI</text>
+    <text x="91" y="121" text-anchor="middle" font-size="11" opacity=".75">lint · tests Moto · GE</text>
+    <rect x="30" y="150" width="122" height="46" rx="4" fill="none" stroke="currentColor"/>
+    <text x="91" y="169" text-anchor="middle">Ingesta por cron</text>
+    <text x="91" y="185" text-anchor="middle" font-size="11" opacity=".75">CKAN http · BCRA · EIA</text>
+    <rect x="30" y="214" width="122" height="46" rx="4" fill="none" stroke="currentColor"/>
+    <text x="91" y="233" text-anchor="middle">Grafana Cloud Free</text>
+    <text x="91" y="249" text-anchor="middle" font-size="11" opacity=".75">métricas · frescura · SLA</text>
+
+    <!-- Ring 1: local -->
+    <rect x="190" y="24" width="794" height="262" rx="8" fill="none" stroke="#C8731A" stroke-width="1.5"/>
+    <text x="206" y="46" font-weight="600" font-size="13" fill="#C8731A">ANILLO 1 · LOCAL PERMANENTE · Docker Compose (perfiles batch, streaming, cdc)</text>
+
+    <rect x="206" y="66" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="266" y="86" text-anchor="middle">Airflow</text>
+    <text x="266" y="102" text-anchor="middle" font-size="11" opacity=".75">DAGs idempotentes</text>
+
+    <rect x="206" y="146" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="266" y="166" text-anchor="middle">Extractores</text>
+    <text x="266" y="182" text-anchor="middle" font-size="11" opacity=".75">CSV anual · XLSX · API</text>
+
+    <rect x="206" y="222" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="266" y="242" text-anchor="middle">Replay 3W + sim</text>
+    <text x="266" y="258" text-anchor="middle" font-size="11" opacity=".75">telemetría real + SIM</text>
+
+    <rect x="372" y="146" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="432" y="166" text-anchor="middle">MinIO · bronze</text>
+    <text x="432" y="182" text-anchor="middle" font-size="11" opacity=".75">raw inmutable, por año</text>
+
+    <rect x="372" y="222" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="432" y="242" text-anchor="middle">Kafka</text>
+    <text x="432" y="258" text-anchor="middle" font-size="11" opacity=".75">13 particiones</text>
+
+    <rect x="538" y="146" width="136" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="606" y="166" text-anchor="middle">Spark (3 workers)</text>
+    <text x="606" y="182" text-anchor="middle" font-size="11" opacity=".75">silver · gold · Iceberg</text>
+
+    <rect x="538" y="222" width="136" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="606" y="242" text-anchor="middle">Structured Streaming</text>
+    <text x="606" y="258" text-anchor="middle" font-size="11" opacity=".75">watermarks · late data</text>
+
+    <rect x="720" y="146" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="780" y="166" text-anchor="middle">Trino / DuckDB</text>
+    <text x="780" y="182" text-anchor="middle" font-size="11" opacity=".75">sustituto de Athena</text>
+
+    <rect x="720" y="222" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="780" y="242" text-anchor="middle">MLflow</text>
+    <text x="780" y="258" text-anchor="middle" font-size="11" opacity=".75">registry · batch inference</text>
+
+    <rect x="866" y="146" width="104" height="126" rx="4" fill="none" stroke="currentColor"/>
+    <text x="918" y="196" text-anchor="middle">Great</text>
+    <text x="918" y="212" text-anchor="middle">Expectations</text>
+    <text x="918" y="230" text-anchor="middle" font-size="11" opacity=".75">contratos ·</text>
+    <text x="918" y="244" text-anchor="middle" font-size="11" opacity=".75">reconciliación</text>
+
+    <!-- ring 1 arrows -->
+    <line x1="326" y1="171" x2="370" y2="171" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="348" y="163" text-anchor="middle" font-size="10" opacity=".8">descarga</text>
+    <line x1="492" y1="171" x2="536" y2="171" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="514" y="163" text-anchor="middle" font-size="10" opacity=".8">lee</text>
+    <line x1="674" y1="171" x2="718" y2="171" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="696" y="163" text-anchor="middle" font-size="10" opacity=".8">consulta</text>
+    <line x1="326" y1="247" x2="370" y2="247" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="348" y="239" text-anchor="middle" font-size="10" opacity=".8">produce</text>
+    <line x1="492" y1="247" x2="536" y2="247" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="514" y="239" text-anchor="middle" font-size="10" opacity=".8">consume</text>
+    <line x1="606" y1="222" x2="606" y2="198" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="640" y="212" font-size="10" opacity=".8">escribe Iceberg</text>
+    <line x1="674" y1="247" x2="718" y2="247" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="696" y="239" text-anchor="middle" font-size="10" opacity=".8">features</text>
+    <line x1="266" y1="116" x2="266" y2="144" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="300" y="134" font-size="10" opacity=".8">dispara</text>
+    <line x1="840" y1="171" x2="864" y2="171" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="840" y1="247" x2="864" y2="247" stroke="currentColor" marker-end="url(#arr)"/>
+
+    <!-- Ring 2: Databricks -->
+    <rect x="190" y="310" width="794" height="126" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    <text x="206" y="332" font-weight="600" font-size="13">ANILLO 2 · ESCAPARATE · Databricks Free Edition (sin egress a CKAN, 1 warehouse 2X-Small, 5 tareas)</text>
+    <rect x="206" y="352" width="130" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="271" y="372" text-anchor="middle">UC Volume</text>
+    <text x="271" y="388" text-anchor="middle" font-size="11" opacity=".75">Parquet gold + raw</text>
+    <rect x="382" y="352" width="150" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="457" y="372" text-anchor="middle">Lakeflow pipeline</text>
+    <text x="457" y="388" text-anchor="middle" font-size="11" opacity=".75">1 pipeline, flujos internos</text>
+    <rect x="578" y="352" width="130" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="643" y="372" text-anchor="middle">Unity Catalog</text>
+    <text x="643" y="388" text-anchor="middle" font-size="11" opacity=".75">linaje · permisos</text>
+    <rect x="754" y="352" width="110" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="809" y="372" text-anchor="middle">SQL Warehouse</text>
+    <text x="809" y="388" text-anchor="middle" font-size="11" opacity=".75">2X-Small</text>
+    <rect x="884" y="352" width="86" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="927" y="372" text-anchor="middle">AI/BI</text>
+    <text x="927" y="388" text-anchor="middle" font-size="11" opacity=".75">dashboard</text>
+    <line x1="336" y1="377" x2="380" y2="377" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="532" y1="377" x2="576" y2="377" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="708" y1="377" x2="752" y2="377" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="864" y1="377" x2="882" y2="377" stroke="currentColor" marker-end="url(#arr)"/>
+
+    <!-- Ring 3: AWS -->
+    <rect x="190" y="460" width="794" height="136" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    <text x="206" y="482" font-weight="600" font-size="13">ANILLO 3 · DEMO CLOUD EFÍMERA · AWS (Terraform, ventana de 6 meses, luego Always Free o destroy)</text>
+    <rect x="206" y="504" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="266" y="524" text-anchor="middle">S3 particionado</text>
+    <text x="266" y="540" text-anchor="middle" font-size="11" opacity=".75">anio / mes / cuenca</text>
+    <rect x="360" y="504" width="110" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="415" y="524" text-anchor="middle">Lambda</text>
+    <text x="415" y="540" text-anchor="middle" font-size="11" opacity=".75">validación · DQ</text>
+    <rect x="504" y="504" width="120" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="564" y="524" text-anchor="middle">Step Functions</text>
+    <text x="564" y="540" text-anchor="middle" font-size="11" opacity=".75">4.000 transiciones</text>
+    <rect x="658" y="504" width="130" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="723" y="524" text-anchor="middle">Glue Data Catalog</text>
+    <text x="723" y="540" text-anchor="middle" font-size="11" opacity=".75">1 M objetos gratis</text>
+    <rect x="822" y="504" width="148" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="896" y="524" text-anchor="middle">Athena</text>
+    <text x="896" y="540" text-anchor="middle" font-size="11" opacity=".75">USD 5/TB · Parquet</text>
+    <line x1="326" y1="529" x2="358" y2="529" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="342" y="521" text-anchor="middle" font-size="10" opacity=".8">evento</text>
+    <line x1="470" y1="529" x2="502" y2="529" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="624" y1="529" x2="656" y2="529" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="640" y="521" text-anchor="middle" font-size="10" opacity=".8">registra</text>
+    <line x1="788" y1="529" x2="820" y2="529" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="600" y="580" text-anchor="middle" font-size="11" opacity=".75">EventBridge Scheduler dispara · CloudWatch alarma · AWS Budgets corta</text>
+
+    <!-- cross-ring flows (accent) -->
+    <path d="M606,196 C606,300 271,290 271,350" fill="none" stroke="#C8731A" stroke-width="1.5" marker-end="url(#arrA)"/>
+    <text x="420" y="300" font-size="11" fill="#C8731A">publica gold (Parquet) vía CLI / REST</text>
+    <path d="M432,196 C432,470 266,420 266,502" fill="none" stroke="#C8731A" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrA)"/>
+    <text x="300" y="452" font-size="11" fill="#C8731A">sincroniza raw a S3 (aws s3 sync)</text>
+
+    <!-- repo to rings -->
+    <line x1="152" y1="173" x2="204" y2="173" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="152" y1="109" x2="204" y2="377" stroke="currentColor" stroke-dasharray="3 3" marker-end="url(#arr)"/>
+    <line x1="152" y1="119" x2="204" y2="529" stroke="currentColor" stroke-dasharray="3 3" marker-end="url(#arr)"/>
+    <text x="120" y="290" font-size="10" opacity=".8" transform="rotate(-90 120 290)">despliega (CLI, terraform apply)</text>
+  </g>
+</svg>
+<figcaption>La capa gold se produce una sola vez en local y se publica a los dos anillos cloud. El repositorio gobierna los tres con CI: Databricks recibe por CLI o REST hacia un Volume porque no puede descargar del portal, y AWS recibe el raw sincronizado y se destruye al terminar la ventana de crédito.</figcaption>
+</figure>
+
+<h3>Decisiones que conviene defender en voz alta</h3>
+<ul>
+  <li><strong>Iceberg en local, Delta en Databricks.</strong> Ambos formatos convergen en Variant, deletion vectors y catálogo como autoridad (Iceberg v3 e Delta 4.x, verificado en la investigación previa de esta carpeta). Mostrar los dos es una decisión, no una inconsistencia.</li>
+  <li><strong>Spark 4.0 con ANSI activado por defecto</strong>: un <code>CAST('a' AS INT)</code> ahora lanza error en vez de NULL silencioso. Explicar cómo eso obliga a contratos de datos explícitos.</li>
+  <li><strong>Vocabulario OSDU y WITSML sin desplegar OSDU</strong>: nombrar entidades <code>Well</code>, <code>Wellbore</code>, <code>Trajectory</code>, documentar el mapeo desde <code>idpozo</code> y justificar por qué el stream de perforación va en JSON/Avro sobre Kafka y no en XML/ETP.</li>
+  <li><strong>Trino como sustituto de Athena</strong> en local, porque LocalStack Hobby no incluye Glue ni Athena <span class="b b-v">V</span>.</li>
+  <li><strong>Un pipeline secuencial en Databricks</strong>, porque hay 1 warehouse y 5 tareas concurrentes; los dominios se separan por esquema de Unity Catalog, no por pipeline.</li>
+</ul>
+
+<!-- 09 -->
+<h2 id="matriz"><span class="n">09</span>Matriz de decisión: nube, local o híbrido</h2>
+<div class="tw"><table>
+  <thead><tr><th>Criterio</th><th>AWS Free Tier</th><th>Databricks Free Edition</th><th>Docker local distribuido</th><th>Híbrido (recomendado)</th></tr></thead>
+  <tbody>
+    <tr><td>Costo sostenido</td><td>USD 0 por 6 meses, luego cierre automático <span class="b b-v">V</span>; Paid plan USD 1 a 5/mes <span class="b b-u">?</span></td><td>USD 0; uso no comercial; borrado por inactividad <span class="b b-v">V</span></td><td>USD 0 indefinido</td><td>USD 0 a 5/mes con la parte permanente en local</td></tr>
+    <tr><td>Ingesta desde el portal argentino</td><td>sí</td><td>alto riesgo de bloqueo por egress <span class="b b-v">V</span></td><td>sí</td><td>sí, en GitHub Actions o Docker</td></tr>
+    <tr><td>Big data distribuido real</td><td>Glue o EMR, pagos</td><td>Spark serverless acotado</td><td>Spark y Trino multi-contenedor, límite = RAM</td><td>ambos</td></tr>
+    <tr><td>Streaming</td><td>Kinesis <span class="b b-u">?</span> en Free plan</td><td>no documentado por edición <span class="b b-u">?</span></td><td>Kafka real</td><td>Kafka local, Kinesis como demo acotada</td></tr>
+    <tr><td>Gobernanza y catálogo</td><td>Glue Data Catalog</td><td>Unity Catalog completo, lo mejor de Free Edition</td><td>Iceberg REST / Hive metastore, sin linaje enterprise</td><td>Unity Catalog para el escaparate, Glue para la demo</td></tr>
+    <tr><td>BI y demo pública</td><td>QuickSight <span class="b b-u">?</span></td><td>AI/BI Dashboards; Apps mueren a las 24 h</td><td>Metabase o Superset, no público</td><td>AI/BI o Streamlit + video</td></tr>
+    <tr><td>IaC</td><td>Terraform o CloudFormation, motor gratis <span class="b b-v">V</span></td><td>Asset Bundles con riesgo por egress <span class="b b-p">P</span></td><td>Compose + Makefile</td><td>Terraform (AWS) + Databricks CLI</td></tr>
+    <tr><td>Riesgo de portfolio muerto en el mes 7</td><td>alto</td><td>medio</td><td>nulo</td><td>bajo</td></tr>
+    <tr><td>Impacto en un reclutador</td><td>alto</td><td>alto</td><td>medio-alto</td><td>máximo: demuestra criterio, no solo herramientas</td></tr>
+  </tbody>
+</table></div>
+
+<!-- 10 -->
+<h2 id="practicas"><span class="n">10</span>Prácticas de producción que el proyecto debe exhibir</h2>
+<ul class="checks">
+  <li><strong>Medallion con contratos de datos</strong> entre capas: esquemas versionados, tipos, nulabilidad y expectativas en el repo.</li>
+  <li><strong>Ingesta de doble ruta</strong>: API datastore paginada para recursos activos, descarga y parser para los legacy (8 de 29 en EESS, Reservas XLSX).</li>
+  <li><strong>Idempotencia y particionado por año</strong>: backfill 2006 a 2026 paralelo sin duplicados; manejo explícito de recursos duplicados con ids distintos.</li>
+  <li><strong>Transformador de semi-estructurados</strong>: despivoteo del XLSX de Reservas con tests por año.</li>
+  <li><strong>Tests de calidad</strong> con Great Expectations, dbt tests o Glue Data Quality, incluidas reconciliaciones simulado contra real.</li>
+  <li><strong>IaC</strong> en Terraform con <code>destroy</code> probado y AWS Budgets con alarma.</li>
+  <li><strong>CI/CD en GitHub Actions</strong> sobre repo público: lint, tests con Moto, integración con Compose, despliegue.</li>
+  <li><strong>Observabilidad</strong> en Grafana Cloud Free: duración de jobs, frescura por tabla, alertas de SLA.</li>
+  <li><strong>SCD2 sobre pozos y estaciones</strong>; Kimball en gold, con justificación frente a Data Vault.</li>
+  <li><strong>MLOps</strong>: MLflow registry, inferencia batch, backtesting y monitoreo de drift.</li>
+  <li><strong>Documentación honesta</strong>: tabla de trazabilidad real / simulado / derivado, sección "qué verifiqué y qué no", y las correcciones de la sección 12 publicadas.</li>
+  <li><strong>Reproducibilidad desde cero</strong>: un <code>make bootstrap</code> levanta todo, porque nada persiste en las cuentas gratuitas.</li>
+  <li><strong>ADRs</strong> (Architecture Decision Records) para cada decisión de la sección 08.</li>
+</ul>
+
+<!-- 11 -->
+<h2 id="roadmap"><span class="n">11</span>Roadmap sugerido (proyecto A + módulos de D y C)</h2>
+<p>El orden importa: primero se cierran los riesgos que cambiarían el diseño, después se construye la base, y lo vistoso va al final sobre cimientos que ya funcionan.</p>
+<ol class="phases">
+  <li><div class="w">Semana 0<small>de-risking</small></div><p>Crear cuentas y ejecutar las pruebas de 10 minutos: egress de Databricks hacia el portal, verificación LinkedIn, descarga de un CSV anual y del ZIP de Reservas, replay de un archivo de 3W. Decidir Iceberg REST catalog o Hive. Escribir los primeros ADRs.</p></li>
+  <li><div class="w">Semanas 1 a 2<small>plataforma local</small></div><p>Docker Compose con perfiles, MinIO, Spark de 3 workers, Trino, Airflow. Extractores con ruta dual y bronze inmutable particionado por año. CI con lint y tests.</p></li>
+  <li><div class="w">Semanas 3 a 4<small>silver y gold</small></div><p>Contratos de datos, limpieza, dim_pozo SCD2, fact_produccion_mensual, joins con fractura y padrón. Great Expectations con reconciliaciones. Despivoteo de Reservas (módulo D).</p></li>
+  <li><div class="w">Semanas 5 a 6<small>streaming</small></div><p>Kafka con 13 particiones, replay de 3W y simulador de perforación calibrado, Structured Streaming con watermarks, tabla de eventos en Iceberg. Test de reconciliación del simulador contra agregados reales.</p></li>
+  <li><div class="w">Semanas 7 a 8<small>ML</small></div><p>Clasificador de eventos de pozo sobre 3W y curva de declino con feature store (módulo C). MLflow registry, inferencia batch y drift.</p></li>
+  <li><div class="w">Semana 9<small>escaparate</small></div><p>Publicación de gold a un Volume de Unity Catalog, pipeline Lakeflow único, SQL Warehouse y AI/BI Dashboard.</p></li>
+  <li><div class="w">Semana 10<small>demo AWS</small></div><p>Terraform con S3, Lambda, Step Functions, Glue Catalog y Athena. Budgets y alarmas. Video de la corrida completa y <code>terraform destroy</code> verificado.</p></li>
+  <li><div class="w">Semanas 11 a 12<small>cierre</small></div><p>README con arquitectura, ADRs, tabla de trazabilidad, sección de verificaciones y correcciones, Grafana con métricas reales. Ensayo de la presentación de 15 minutos.</p></li>
+</ol>
+
+<!-- 12 -->
+<h2 id="refutadas"><span class="n">12</span>Afirmaciones refutadas y vacíos abiertos</h2>
+<p>La verificación adversarial corrigió diez afirmaciones del barrido inicial. Se listan porque cualquiera de ellas habría distorsionado el diseño y porque publicarlas en el repo es en sí una señal de rigor.</p>
+<div class="tw"><table>
+  <thead><tr><th>Afirmación inicial</th><th>Veredicto</th><th>Corrección verificada</th></tr></thead>
+  <tbody>
+    <tr><td>La RTOR La Plata monitorea 200.000 variables y logró +20% de rentabilidad</td><td><span class="b b-x">X</span></td><td>La fuente no respalda ninguna cifra. Sí: inauguración 23-dic-2025, más de 210.000 bbl/día, 180 km de fibra, 30 tableros.</td></tr>
+    <tr><td>YPF controla 16 equipos simultáneos desde el RTIC</td><td><span class="b b-x">X</span></td><td>16 es capacidad de diseño; operan 13 ("Hoy tenemos 13 equipos perforando"). Dimensionar con 13.</td></tr>
+    <tr><td>El acuerdo YPF-Corva se firmó el 1-sep-2026</td><td><span class="b b-x">X</span></td><td>Se anunció ese día; ninguna fuente da fecha de firma.</td></tr>
+    <tr><td>El XLSX de Reservas tiene 7 filas fusionadas de encabezado</td><td><span class="b b-x">X parcial</span></td><td>Dos hojas; solo las filas 1, 3, 4 y 5 están fusionadas; las columnas de identificación están en la fila 7.</td></tr>
+    <tr><td>Volve solo permite uso académico</td><td><span class="b b-x">X</span></td><td>La guía vigente admite "student, researcher, or professional"; la licencia completa sigue sin leerse.</td></tr>
+    <tr><td>El dataset CAMMESA es inaccesible por un bucle de redirección</td><td><span class="b b-x">X</span></td><td>Un solo 301 de https a http; el portal responde 200 en http.</td></tr>
+    <tr><td>LocalStack Hobby no incluye Kinesis, Glue ni Athena</td><td><span class="b b-x">X parcial</span></td><td>Kinesis sí está en Hobby; Glue y Athena requieren Ultimate.</td></tr>
+    <tr><td>El fallo de Asset Bundles es solo un rumor de comunidad</td><td><span class="b b-x">X parcial</span></td><td>La restricción de egress es oficial; lo no confirmado es si releases.hashicorp.com está fuera de la lista.</td></tr>
+    <tr><td>El artículo del RTIC de Puerto Madero habla de 2.000+ pozos</td><td><span class="b b-x">X</span></td><td>Esa cifra pertenece al RTIC de Neuquén; no mezclar fuentes.</td></tr>
+    <tr><td>AWS Energy Data Insights persiste sobre S3 y DynamoDB</td><td><span class="b b-u">no confirmada</span></td><td>El anuncio oficial no lo menciona.</td></tr>
+  </tbody>
+</table></div>
+<h3>Vacíos que no bloquean el diseño y se resuelven durante el build</h3>
+<ul>
+  <li>Semántica exacta de <code>tef</code> y <code>vida_util</code> y unidades de producción (m³).</li>
+  <li>Columnas del recurso "Producción No Convencional" y del catálogo maestro de pozos; contenido de trayectorias de pozo.</li>
+  <li>Si <code>datastore_search_sql</code> acepta pushdown sobre los CSV anuales grandes.</li>
+  <li>Rate limits de EIA y BCRA; storage de Databricks Free Edition; RAM de las plantillas alternativas de lakehouse local.</li>
+  <li>Frecuencia de muestreo nativa de 3W; disponibilidad de Structured Streaming y MLflow por edición en Databricks.</li>
+</ul>
+
+<!-- 13 -->
+<h2 id="fuentes"><span class="n">13</span>Fuentes principales</h2>
+<p class="small">Selección de las 96 fuentes del informe consolidado. La lista completa, con los 11 informes por ángulo y los 4 de relleno, está en <code>ypf-data-platform/research/</code>.</p>
+<ul class="sources">
+  <li><a href="https://www.infobae.com/def/2025/08/23/como-son-los-centros-inteligentes-que-monitorean-en-tiempo-real-vaca-muerta-y-las-estaciones-de-servicio-de-ypf/">Infobae · centros inteligentes de YPF (RTIC)</a></li>
+  <li><a href="https://mase.lmneuquen.com/vaca-muerta/como-es-el-real-time-intelligence-center-el-cerebro-digital-ypf-que-construye-los-pozos-vaca-muerta-n1161568">LM Neuquén · RTIC Puerto Madero</a></li>
+  <li><a href="https://mase.lmneuquen.com/vaca-muerta/ypf-monitorea-mas-2000-pozos-vaca-muerta-su-rtic-ia-drones-y-starlink-n1248621">LM Neuquén · RTIC Neuquén</a></li>
+  <li><a href="https://www.rionegro.com.ar/energia/ypf-inauguro-la-nueva-sala-real-time-operations-room-en-el-complejo-industrial-la-plata-4412625/">Río Negro · RTOR La Plata</a></li>
+  <li><a href="https://www.rionegro.com.ar/energia/ypf-y-corva-renuevan-acuerdo-para-impulsar-la-transformacion-digital-en-vaca-muerta-4705162/">Río Negro · YPF y Corva</a></li>
+  <li><a href="https://www.lanacion.com.ar/economia/toyota-well-el-plan-con-el-que-ypf-planea-reducir-el-tiempo-de-construccion-de-pozos-en-vaca-muerta-nid06122024/">La Nación · Toyota Well</a></li>
+  <li><a href="https://www.prnewswire.com/news-releases/ypf-and-globant-advance-a-major-project-to-transform-and-optimize-the-supply-chain-with-ai-solutions-302598411.html">PRNewswire · Digital Suppl.AI</a></li>
+  <li><a href="https://www.adnsur.com.ar/pulso-energetico/acuerdo-entre-ypf-y-microsoft-para-impulsar-la-gestion-de-contratos-con-inteligencia-artificial_a66cf407c5ae53ef0a7cedc89">ADN Sur · YPF y Microsoft (GAIA)</a></li>
+  <li><a href="https://www.sec.gov/Archives/edgar/data/904851/000119312526126363/d95578d20f.htm">SEC · Form 20-F FY2025 de YPF</a></li>
+  <li><a href="https://data.sec.gov/submissions/CIK0000904851.json">SEC · submissions API CIK 904851</a></li>
+  <li><a href="https://direcciona.hiringroom.com/jobs/get_vacancy/69eb716188bebe851ee4fd0c">HiringRoom · Jóvenes en Tecnología YPF</a></li>
+  <li><a href="http://datos.energia.gob.ar/api/3/action/package_show?id=produccion-de-petroleo-y-gas-por-pozo">CKAN · producción por pozo</a></li>
+  <li><a href="http://datos.energia.gob.ar/api/3/action/package_show?id=datos-de-fractura-de-pozos-adjunto-iv">CKAN · fractura de pozos</a></li>
+  <li><a href="http://datos.energia.gob.ar/api/3/action/package_show?id=perforacion-de-pozos-de-petroleo-y-gas">CKAN · perforación</a></li>
+  <li><a href="http://datos.energia.gob.ar/api/3/action/package_show?id=precios-en-surtidor">CKAN · precios en surtidor</a></li>
+  <li><a href="http://datos.energia.gob.ar/api/3/action/package_show?id=precios-eess---resolucion-1104-04">CKAN · precios y volúmenes EESS</a></li>
+  <li><a href="http://datos.energia.gob.ar/api/3/action/package_show?id=reservas-de-petroleo-y-gas">CKAN · reservas</a></li>
+  <li><a href="http://datos.energia.gob.ar/dataset/publicaciones-cammesa">CKAN · publicaciones CAMMESA</a></li>
+  <li><a href="https://github.com/petrobras/3W">GitHub · Petrobras 3W</a></li>
+  <li><a href="https://doi.org/10.1038/s41597-026-07225-z">Scientific Data · 3W Dataset 2.0.0</a></li>
+  <li><a href="https://www.equinor.com/energy/volve-data-sharing">Equinor · Volve</a></li>
+  <li><a href="https://www.eia.gov/opendata/">EIA Open Data</a></li>
+  <li><a href="https://estadisticas-cambiarias.bcra.apidocs.ar/">BCRA · API estadísticas cambiarias</a></li>
+  <li><a href="https://open-meteo.com/en/docs/historical-weather-api">Open-Meteo · histórico</a></li>
+  <li><a href="https://github.com/SyntheticFunk/drilling-telemetry-simulator">GitHub · drilling-telemetry-simulator</a></li>
+  <li><a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html">AWS · free tier plans</a></li>
+  <li><a href="https://aws.amazon.com/free/free-tier-faqs/">AWS · free tier FAQ</a></li>
+  <li><a href="https://aws.amazon.com/about-aws/whats-new/2025/07/aws-free-tier-credits-month-free-plan/">AWS · anuncio free tier jul-2025</a></li>
+  <li><a href="https://aws.amazon.com/glue/pricing/">AWS · Glue pricing</a></li>
+  <li><a href="https://aws.amazon.com/athena/pricing/">AWS · Athena pricing</a></li>
+  <li><a href="https://aws.amazon.com/step-functions/pricing/">AWS · Step Functions pricing</a></li>
+  <li><a href="https://docs.databricks.com/aws/en/getting-started/free-edition-limitations">Databricks · Free Edition limitations</a></li>
+  <li><a href="https://docs.databricks.com/aws/en/getting-started/free-trial-vs-free-edition">Databricks · trial vs Free Edition</a></li>
+  <li><a href="https://community.databricks.com/t5/administration-architecture/asset-bundle-on-free-edition/td-p/127236">Databricks Community · Asset Bundles en Free Edition</a></li>
+  <li><a href="https://docs.github.com/en/billing/concepts/product-billing/github-actions">GitHub · facturación de Actions</a></li>
+  <li><a href="https://neon.com/docs/introduction/plans">Neon · planes</a></li>
+  <li><a href="https://supabase.com/pricing">Supabase · pricing</a></li>
+  <li><a href="https://grafana.com/pricing/">Grafana Cloud · pricing</a></li>
+  <li><a href="https://www.localstack.cloud/pricing">LocalStack · pricing</a></li>
+  <li><a href="https://github.com/getmoto/moto">GitHub · Moto</a></li>
+  <li><a href="https://github.com/1ambda/lakehouse">GitHub · 1ambda/lakehouse (plantilla local)</a></li>
+  <li><a href="https://www.opengroup.org/osdu-forum/">The Open Group · OSDU Forum</a></li>
+  <li><a href="https://community.opengroup.org/osdu">OSDU · implementación de referencia</a></li>
+  <li><a href="https://energistics.org/witsml-data-standards">Energistics · WITSML</a></li>
+  <li><a href="https://learn.microsoft.com/en-us/azure/energy-data-services/overview-microsoft-energy-data-services">Microsoft · Azure Data Manager for Energy</a></li>
+</ul>
+</main>
+</div>
+</body>
+</html>

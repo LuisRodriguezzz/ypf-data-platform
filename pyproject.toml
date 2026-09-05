@@ -1,0 +1,20 @@
+[project]
+name = "ypf-data-platform"
+version = "0.1.0"
+description = "Lakehouse del upstream argentino sobre datos publicos reales"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "polars>=1.20",
+  "pyarrow>=17",
+  "duckdb>=1.1",
+  "requests>=2.32",
+  "openpyxl>=3.1",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "moto[s3]>=5"]
+
+[tool.ruff]
+line-length = 100

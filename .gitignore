@@ -1,0 +1,22 @@
+# datos: nunca al repo, se regeneran con el pipeline
+data/
+*.csv
+*.parquet
+*.zip
+*.xlsx
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# secretos y entornos
+.env
+config/*.local.env
+# terraform
+infra/terraform/.terraform/
+*.tfstate
+*.tfstate.backup
+# spark / airflow locales
+spark-warehouse/
+metastore_db/
+orchestration/logs/
