@@ -2,10 +2,11 @@ name: ypf-lakehouse
 
 # Perfiles:
 #   core      -> MinIO (S3), Postgres (metadata), catálogo Iceberg REST      [siempre]
-#   spark     -> Spark master + workers                                       [etapa 1]
+#   spark     -> runner efímero de Spark (ADR 0004), no es un servicio        [etapa 1]
 #   airflow   -> orquestador                                                  [etapa 1]
 #   streaming -> Kafka + productor de replay 3W                               [etapa 2]
 # Uso: podman-compose --profile core up -d
+#      scripts/spark-submit.ps1 pipelines/spark_jobs/bronze_load.py --dataset produccion_pozo
 
 x-minio-env: &minio-env
   AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
@@ -97,7 +98,40 @@ services:
       - iceberg-catalog:/data
     restart: unless-stopped
 
+  # Runner de Spark: contenedor efímero que corre un spark-submit y muere (ADR 0004).
+  # No tiene `command`: se lo pasa `podman-compose --profile spark run --rm spark ...`.
+  # Requiere el perfil core levantado; no se declara depends_on para que `run` no intente
+  # arrancar de nuevo servicios que ya están corriendo.
+  spark:
+    image: apache/spark:4.0.4-scala2.13-java17-python3-ubuntu
+    profiles: ["spark"]
+    working_dir: /app
+    environment:
+      <<: *minio-env
+      # La imagen trae HOME=/nonexistent; Ivy necesita un HOME escribible para los jars.
+      HOME: /home/spark
+      PYTHONPATH: /app
+      PYTHONDONTWRITEBYTECODE: "1"
+      # Hostnames internos de la red del compose (no localhost).
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_REGION: us-east-1
+      S3_LANDING_BUCKET: landing
+      ICEBERG_CATALOG_URI: http://iceberg-rest:8181
+      ICEBERG_WAREHOUSE: s3://lakehouse/warehouse
+      POSTGRES_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lakehouse
+    volumes:
+      - ../../pipelines:/app/pipelines:ro
+      - ../../config:/app/config:ro
+      # Jars y memoria del driver: hay que fijarlos antes de que arranque la JVM.
+      - ./spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      # Cache de jars: Ivy los deja en /home/spark/.ivy2 (spark-defaults.conf) y así no se
+      # vuelven a bajar en cada corrida. Se monta el HOME entero por si el runner escribe algo más.
+      - ivy-cache:/home/spark
+
 volumes:
   minio-data:
   pg-data:
   iceberg-catalog:
+  ivy-cache:
