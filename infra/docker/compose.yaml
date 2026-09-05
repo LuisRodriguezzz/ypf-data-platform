@@ -72,7 +72,9 @@ services:
     restart: unless-stopped
 
   # Catálogo Iceberg (REST). Registra namespaces y tablas de bronze/silver/gold.
-  # Backend JDBC en SQLite sobre volumen; se migra a Postgres cuando entre Airflow.
+  # Backend JDBC en SQLite sobre volumen (decisión: ADR 0003). La imagen oficial no trae el
+  # driver de Postgres y no vale la pena mantener una imagen propia para un entorno local.
+  # En AWS el catálogo es Glue Data Catalog, así que este componente no viaja a la nube.
   iceberg-rest:
     image: apache/iceberg-rest-fixture:1.10.1
     profiles: ["core"]
