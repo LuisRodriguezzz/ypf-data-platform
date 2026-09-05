@@ -17,6 +17,9 @@ DAG_FOLDER = Path(__file__).resolve().parent.parent / "orchestration" / "dags"
 
 
 def main() -> int:
+    # El scheduler agrega la carpeta de DAGs al path; acá hay que hacerlo a mano para que
+    # `from runner import runner_task` resuelva igual que en el contenedor.
+    sys.path.insert(0, str(DAG_FOLDER))
     # Airflow 3.3 quitó `include_examples`: los ejemplos se apagan por env (ver ci.yml).
     dagbag = DagBag(dag_folder=str(DAG_FOLDER))
     if dagbag.import_errors:
