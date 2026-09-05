@@ -60,6 +60,7 @@ jobs:
 
       - name: Verificar que los DAGs importan
         env:
+          AIRFLOW__CORE__LOAD_EXAMPLES: "False"
           # Coordenadas del runner que orchestration/dags/runner.py exige al importarse.
           RUNNER_IMAGE: "dummy-image"
           RUNNER_NETWORK: "dummy-network"

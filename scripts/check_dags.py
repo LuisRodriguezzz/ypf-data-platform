@@ -17,7 +17,8 @@ DAG_FOLDER = Path(__file__).resolve().parent.parent / "orchestration" / "dags"
 
 
 def main() -> int:
-    dagbag = DagBag(dag_folder=str(DAG_FOLDER), include_examples=False)
+    # Airflow 3.3 quitó `include_examples`: los ejemplos se apagan por env (ver ci.yml).
+    dagbag = DagBag(dag_folder=str(DAG_FOLDER))
     if dagbag.import_errors:
         print(f"Fallaron {len(dagbag.import_errors)} DAG(s) al importar:")
         for path, error in dagbag.import_errors.items():
