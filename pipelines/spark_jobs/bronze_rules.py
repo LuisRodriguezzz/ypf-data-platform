@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from pipelines.spark_jobs.yaml_lite import load_yaml_file
+
 BOM = "\ufeff"
+DEFAULT_TABLES_PATH = Path(__file__).with_name("bronze_tables.yaml")
 
 
 @dataclass(frozen=True)
@@ -17,6 +22,14 @@ class LandedFile:
     landing_key: str
     sha256: str
     ingest_date: str  # ISO; Spark lo castea a date
+
+
+@dataclass(frozen=True)
+class TableRule:
+    """Un patr\u00f3n de nombre de recurso y la tabla bronze a la que va."""
+
+    match: str
+    table: str
 
 
 def s3a_uri(bucket: str, key: str) -> str:
@@ -32,6 +45,47 @@ def clean_column_name(name: str) -> str:
 def namespace_of(table: str) -> str:
     """`lake.bronze.produccion_pozo` -> `lake.bronze`."""
     return table.rsplit(".", 1)[0]
+
+
+def dataset_names(path: Path | str | None = None) -> list[str]:
+    """Datasets declarados en bronze_tables.yaml, para las opciones de la CLI."""
+    raw = load_yaml_file(path or DEFAULT_TABLES_PATH)
+    return sorted(raw.get("datasets") or {})
+
+
+def load_table_rules(dataset: str, path: Path | str | None = None) -> list[TableRule]:
+    """Reglas de un dataset, en orden de evaluación."""
+    raw = load_yaml_file(path or DEFAULT_TABLES_PATH)
+    entries = (raw.get("datasets") or {}).get(dataset)
+    if not entries:
+        raise KeyError(f"dataset {dataset!r} no tiene tablas declaradas en bronze_tables.yaml")
+    return [TableRule(match=entry["match"], table=entry["table"]) for entry in entries]
+
+
+def table_for_resource(rules: list[TableRule], resource_name: str) -> str | None:
+    """Tabla del primer patrón que coincide; None si el recurso no está mapeado."""
+    for rule in rules:
+        if re.search(rule.match, resource_name, re.IGNORECASE):
+            return rule.table
+    return None
+
+
+def resources_by_table(
+    landed: list[LandedFile],
+    rules: list[TableRule],
+) -> dict[str, list[LandedFile]]:
+    """Agrupa los recursos por tabla destino, salteando los que no matchean."""
+    groups: dict[str, list[LandedFile]] = {}
+    for file in landed:
+        table = table_for_resource(rules, file.resource_name)
+        if table:
+            groups.setdefault(table, []).append(file)
+    return groups
+
+
+def unmapped_resources(landed: list[LandedFile], rules: list[TableRule]) -> list[LandedFile]:
+    """Recursos que no coinciden con ningún patrón: se loguean y no se cargan."""
+    return [file for file in landed if table_for_resource(rules, file.resource_name) is None]
 
 
 def pending_files(

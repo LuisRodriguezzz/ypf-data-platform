@@ -17,20 +17,18 @@ from pyspark.sql import functions as F
 from pipelines.spark_jobs.bronze_rules import (
     LandedFile,
     clean_column_name,
+    dataset_names,
     latest_ok_query,
+    load_table_rules,
     namespace_of,
     pending_files,
     postgres_jdbc,
+    resources_by_table,
     s3a_uri,
+    unmapped_resources,
 )
 from pipelines.spark_jobs.config import load_config
 from pipelines.spark_jobs.session import build_spark
-
-# Un dataset por tabla bronze. `reservas` no está: es un XLSX dentro de un ZIP, no un CSV.
-DATASET_TABLES = {
-    "produccion_pozo": "lake.bronze.produccion_pozo",
-    "fractura": "lake.bronze.fractura",
-}
 
 logger = logging.getLogger("bronze_load")
 
@@ -122,7 +120,7 @@ def load_resource(spark: SparkSession, file: LandedFile, bucket: str, table: str
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Carga la capa bronze desde landing")
-    parser.add_argument("--dataset", required=True, choices=sorted(DATASET_TABLES))
+    parser.add_argument("--dataset", required=True, choices=dataset_names())
     parser.add_argument("--resource-id", help="cargar un solo recurso del dataset")
     return parser.parse_args(argv)
 
@@ -130,31 +128,36 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args(argv)
-    table = DATASET_TABLES[args.dataset]
+    rules = load_table_rules(args.dataset)
     config = load_config()
 
     spark = build_spark(f"bronze_load:{args.dataset}", config)
     started = time.monotonic()
+    loaded_resources = 0
+    total_rows = 0
     try:
-        spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {namespace_of(table)}")
         landed = read_manifest(spark, config.postgres_dsn, args.dataset)
         if args.resource_id:
             landed = [file for file in landed if file.resource_id == args.resource_id]
-        pending = pending_files(landed, loaded_sha256(spark, table))
-        logger.info(
-            "dataset=%s tabla=%s recursos=%d pendientes=%d",
-            args.dataset,
-            table,
-            len(landed),
-            len(pending),
-        )
-        total = sum(
-            load_resource(spark, file, config.s3_landing_bucket, table) for file in pending
-        )
+        for file in unmapped_resources(landed, rules):
+            logger.warning(
+                "recurso sin tabla en bronze_tables.yaml, se saltea: %s", file.resource_name
+            )
+
+        for table, files in resources_by_table(landed, rules).items():
+            spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {namespace_of(table)}")
+            pending = pending_files(files, loaded_sha256(spark, table))
+            logger.info(
+                "tabla=%s recursos=%d pendientes=%d", table, len(files), len(pending)
+            )
+            for file in pending:
+                total_rows += load_resource(spark, file, config.s3_landing_bucket, table)
+                loaded_resources += 1
+
         logger.info(
             "resumen: %d recursos cargados | %s filas | %.1f s",
-            len(pending),
-            f"{total:,}",
+            loaded_resources,
+            f"{total_rows:,}",
             time.monotonic() - started,
         )
     finally:

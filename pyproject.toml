@@ -39,6 +39,11 @@ exclude = [".venv", "data", "research"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "W"]
 
+[tool.ruff.lint.per-file-ignores]
+# El runner de Spark trae Python 3.10 (ADR 0004) aunque el repo pida 3.11: los jobs usan
+# `timezone.utc`, que en 3.11 seria `datetime.UTC`.
+"pipelines/spark_jobs/*.py" = ["UP017"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
