@@ -5,9 +5,9 @@
 $ErrorActionPreference = "Stop"
 $compose = Join-Path (Split-Path -Parent $PSScriptRoot) "infra\docker\compose.yaml"
 
-# La imagen no trae PyYAML (ADR 0004): se instala con `pip install --user` antes de correr el
-# job. Persiste en el volumen `ivy-cache` (montado en /home/spark), así que solo la primera
-# corrida lo descarga; las siguientes lo saltean.
+# La imagen no trae las dependencias Python del proyecto (ADR 0004): se instalan con
+# `pip install --user` antes de correr el job. Persisten en el volumen `ivy-cache` (montado en
+# /home/spark), así que solo la primera corrida las descarga; las siguientes las saltean.
 # La imagen no tiene /opt/spark/bin en el PATH: se invoca el binario por ruta absoluta.
 # El script de `bash -c` va en una string de comillas simples (PowerShell no la interpola) con
 # `\"$@\"` en vez de `"$@"`: así llega a bash con comillas reales y expande los argumentos de

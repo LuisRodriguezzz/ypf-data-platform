@@ -1,2 +1,14 @@
-# Dependencias Python del runner de Spark (ADR 0004); se instalan con pip en el volumen persistente ivy-cache.
+# Dependencias Python del runner (ADR 0004); se instalan con pip en el volumen persistente ivy-cache.
+# Versiones pineadas a las que resuelve uv.lock para el host, así el runner corre el mismo código.
+
+# Jobs de Spark: contratos y mapeo de tablas en YAML.
 pyyaml==6.0.3
+
+# Ingesta: Airflow la lanza en este mismo runner (`python3 -m pipelines.ingest.cli`, ADR 0006),
+# así que el contenedor necesita las dependencias del paquete `pipelines.ingest`.
+boto3==1.43.89
+sqlalchemy==2.0.52
+psycopg[binary]==3.3.5
+typer==0.27.2
+pydantic-settings==2.15.0
+requests==2.34.2

@@ -41,8 +41,10 @@ select = ["E", "F", "I", "UP", "B", "W"]
 
 [tool.ruff.lint.per-file-ignores]
 # El runner de Spark trae Python 3.10 (ADR 0004) aunque el repo pida 3.11: los jobs usan
-# `timezone.utc`, que en 3.11 seria `datetime.UTC`.
+# `timezone.utc`, que en 3.11 seria `datetime.UTC`. La ingesta corre en el mismo runner
+# cuando la lanza Airflow (ADR 0006), asi que tambien tiene que ser compatible con 3.10.
 "pipelines/spark_jobs/*.py" = ["UP017"]
+"pipelines/ingest/manifest.py" = ["UP017"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

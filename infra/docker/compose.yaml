@@ -3,15 +3,30 @@ name: ypf-lakehouse
 # Perfiles:
 #   core      -> MinIO (S3), Postgres (metadata), catálogo Iceberg REST      [siempre]
 #   spark     -> runner efímero de Spark (ADR 0004), no es un servicio        [etapa 1]
-#   airflow   -> orquestador                                                  [etapa 1]
+#   airflow   -> orquestador; lanza el runner por tarea (ADR 0006)            [etapa 1]
 #   streaming -> Kafka + productor de replay 3W                               [etapa 2]
 # Uso: podman-compose --profile core up -d
+#      podman-compose --profile core --profile airflow up -d   # UI en http://localhost:8080
 #      scripts/spark-submit.ps1 pipelines/spark_jobs/bronze_load.py --dataset produccion_pozo
 
 x-minio-env: &minio-env
   AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
   AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
   AWS_REGION: us-east-1
+
+# Endpoints y credenciales del lakehouse con los hostnames internos de la red del compose.
+# Los usa el runner; Airflow los recibe para reenviárselos a cada runner que lanza (ADR 0006),
+# así las credenciales viven solo acá y no se duplican en los DAGs.
+x-lakehouse-env: &lakehouse-env
+  <<: *minio-env
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+  S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+  S3_REGION: us-east-1
+  S3_LANDING_BUCKET: landing
+  ICEBERG_CATALOG_URI: http://iceberg-rest:8181
+  ICEBERG_WAREHOUSE: s3://lakehouse/warehouse
+  POSTGRES_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lakehouse
 
 services:
   minio:
@@ -107,20 +122,11 @@ services:
     profiles: ["spark"]
     working_dir: /app
     environment:
-      <<: *minio-env
+      <<: *lakehouse-env
       # La imagen trae HOME=/nonexistent; Ivy necesita un HOME escribible para los jars.
       HOME: /home/spark
       PYTHONPATH: /app
       PYTHONDONTWRITEBYTECODE: "1"
-      # Hostnames internos de la red del compose (no localhost).
-      S3_ENDPOINT_URL: http://minio:9000
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-      S3_REGION: us-east-1
-      S3_LANDING_BUCKET: landing
-      ICEBERG_CATALOG_URI: http://iceberg-rest:8181
-      ICEBERG_WAREHOUSE: s3://lakehouse/warehouse
-      POSTGRES_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lakehouse
     volumes:
       - ../../pipelines:/app/pipelines:ro
       - ../../config:/app/config:ro
@@ -130,8 +136,60 @@ services:
       # vuelven a bajar en cada corrida. Se monta el HOME entero por si el runner escribe algo más.
       - ivy-cache:/home/spark
 
+  # Orquestador. No ejecuta código nuestro: cada tarea lanza un runner de Spark por la API de
+  # Podman (ADR 0006). `standalone` levanta api-server, scheduler, dag-processor y triggerer en
+  # un proceso: alcanza para local y evita cuatro servicios más.
+  # Se levanta junto con core: `podman-compose --profile core --profile airflow up -d`, porque
+  # podman-compose resuelve el depends_on solo si el perfil del servicio del que depende está.
+  airflow:
+    image: apache/airflow:3.3.1-python3.12
+    profiles: ["airflow"]
+    command: standalone
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Mismas credenciales y endpoints que el runner: se los pasa a cada contenedor que lanza.
+      <<: *lakehouse-env
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      # Sin login en local: la UI entra directo como admin. Nunca fuera de la máquina de dev.
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"
+      AIRFLOW__API__BASE_URL: http://localhost:8080
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: America/Argentina/Buenos_Aires
+      AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: America/Argentina/Buenos_Aires
+      # Coordenadas del runner que los DAGs necesitan para lanzarlo (ver orchestration/dags/runner.py).
+      RUNNER_IMAGE: apache/spark:4.0.4-scala2.13-java17-python3-ubuntu
+      RUNNER_NETWORK: ypf-lakehouse_default
+      RUNNER_IVY_VOLUME: ypf-lakehouse_ivy-cache
+      # Ruta del repo vista desde la máquina de Podman: los montajes del runner los resuelve
+      # el motor, no el contenedor de Airflow. Se define en infra/docker/.env.
+      RUNNER_REPO_DIR: ${RUNNER_REPO_DIR}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../orchestration/dags:/opt/airflow/dags:ro
+      - airflow-logs:/opt/airflow/logs
+      # API de Podman: es lo que abre el DockerOperator para lanzar el runner.
+      - podman-socket:/var/run/podman
+    restart: unless-stopped
+
 volumes:
   minio-data:
   pg-data:
   iceberg-catalog:
   ivy-cache:
+  airflow-logs:
+
+  # Carpeta del socket de la API de Podman dentro de la máquina WSL (el uid del usuario de
+  # `podman machine` es siempre 1000). Va como volumen con `device` y no como bind mount porque
+  # el cliente de Podman para Windows traduce las rutas absolutas de los bind mounts a rutas de
+  # Windows: `/run/user/1000/...` termina montando `C:\run\user\1000\...`, que no existe.
+  # Se monta la carpeta y no el socket: `mount --bind` de un socket sobre un directorio falla.
+  podman-socket:
+    driver: local
+    driver_opts:
+      type: none
+      device: /run/user/1000/podman
+      o: bind

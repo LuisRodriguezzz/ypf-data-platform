@@ -13,8 +13,13 @@ uv run ingest run  --dataset fractura --dry-run          # solo muestra qué har
 uv run ingest manifest --dataset produccion_pozo -n 20   # últimas filas del manifiesto
 ```
 
-Configuración: `config/local.env` (o la ruta en `LAKEHOUSE_ENV_FILE`). `run` devuelve
-código de salida 1 si algún recurso falló; el resto de la corrida sigue igual.
+Configuración: `config/local.env` (o la ruta en `LAKEHOUSE_ENV_FILE`). Cualquier variable de
+entorno pisa el archivo, que es como corre dentro de los contenedores (hostnames internos).
+`run` devuelve código de salida 1 si algún recurso falló; el resto de la corrida sigue igual.
+
+Airflow la corre igual pero dentro del runner de Spark (ADR 0006):
+`python3 -m pipelines.ingest.cli run --dataset produccion_pozo`. Ese contenedor trae Python
+3.10, así que el paquete no puede usar sintaxis ni stdlib de 3.11 (ver `_now` en `manifest.py`).
 
 ## Decisiones
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy import (
@@ -59,7 +59,9 @@ ingestion_manifest = Table(
 
 
 def _now() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    # timezone.utc y no datetime.UTC: Airflow corre la ingesta en el runner de Spark, que trae
+    # Python 3.10 (ADR 0004 y 0006), aunque el repo pida 3.11 para el host.
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _dsn_for_sqlalchemy(dsn: str) -> str:
