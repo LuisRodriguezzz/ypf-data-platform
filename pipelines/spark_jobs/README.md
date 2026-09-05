@@ -64,9 +64,9 @@ de `dq_runs` y la cuarentena agrupada por motivo.
   un WARNING: es preferible no cargarlo a cargarlo en la tabla equivocada.
 - **En silver el YAML manda.** El job no tiene reglas propias: tipos, unicidad y rangos
   salen del contrato, y los rechazos se guardan en vez de descartarse (ADR 0005).
-- **Lector de YAML propio** (`yaml_lite.py`): el runner no tiene PyYAML y no vale la pena
-  mantener una imagen propia por dos archivos de configuración. Los tests comparan su salida
-  contra PyYAML sobre los archivos reales.
+- **PyYAML en el runner**: `scripts/spark-submit.ps1`/`.sh` instalan las dependencias de
+  `requirements-runner.txt` con `pip install --user` antes de cada corrida; quedan en el
+  volumen `ivy-cache` y no se reinstalan (ADR 0004).
 - **El manifiesto se lee por JDBC**, no con SQLAlchemy: la imagen del runner solo trae PySpark
   y la stdlib, y agregar dependencias Python al contenedor no vale la pena por una consulta.
 - **BOM.** Los CSV del portal son UTF-8 con BOM y Spark no lo saca: el nombre de la primera

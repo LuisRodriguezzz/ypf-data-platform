@@ -18,3 +18,7 @@ Los jars de Iceberg, hadoop-aws y el JDBC de Postgres se declaran en `infra/dock
 - `spark.jars.packages` no puede fijarse desde el código: cuando el job crea la `SparkSession` la JVM de `spark-submit` ya arrancó. Vive en `spark-defaults.conf`, que es además donde iría el equivalente en Glue (`--extra-jars`).
 - La primera corrida baja unos 700 MB de jars de Maven; las siguientes arrancan en segundos.
 - El código del job no sabe que está en un contenedor: los endpoints llegan por variables de entorno, así que el mismo `bronze_load.py` corre en Glue cambiando solo la configuración.
+
+## Actualización 2026-09-05
+
+La imagen no trae PyYAML, y los contratos y el mapeo de tablas se leían con un parser de YAML propio (`yaml_lite.py`) para evitar sumar la dependencia. Mantener un parser casero va contra el criterio del proyecto (código simple, sin abstracciones que no hagan falta), así que se reemplazó por la solución directa: `scripts/spark-submit.ps1` y `scripts/spark-submit.sh` corren `pip install --user` con `pipelines/spark_jobs/requirements-runner.txt` (pineado) antes de cada `spark-submit`. El volumen `ivy-cache`, que ya persiste los jars de Maven, persiste también el paquete instalado en `/home/spark`: la primera corrida lo descarga y las siguientes lo saltean. No hace falta construir una imagen propia ni tocar `spark-defaults.conf`. `bronze_rules.py` y `silver_rules.py` ahora usan `yaml.safe_load` directamente.

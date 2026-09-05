@@ -10,8 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pipelines.spark_jobs.bronze_rules import namespace_of
-from pipelines.spark_jobs.yaml_lite import load_yaml_file
+from pipelines.spark_jobs.bronze_rules import load_yaml_file, namespace_of
 
 # pipelines/spark_jobs/silver_rules.py -> pipelines/contracts
 CONTRACTS_DIR = Path(__file__).resolve().parents[1] / "contracts"

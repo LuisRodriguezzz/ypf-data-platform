@@ -1,0 +1,2 @@
+# Dependencias Python del runner de Spark (ADR 0004); se instalan con pip en el volumen persistente ivy-cache.
+pyyaml==6.0.3

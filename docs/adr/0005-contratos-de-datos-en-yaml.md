@@ -36,6 +36,6 @@ y cada corrida deja una fila en `lake.silver.dq_runs`.
   pregunta "cuántas filas se perdieron y por qué" se contesta con SQL.
 - El umbral de 1 % es arbitrario y global; cuando alguna tabla lo necesite distinto, pasa a
   ser un campo del contrato.
-- Se agrega un lector de YAML propio (`yaml_lite.py`): el runner de Spark solo trae la stdlib
-  y PySpark (ADR 0004) y no vale la pena mantener una imagen con PyYAML. Los tests comparan
-  su salida contra PyYAML sobre los archivos reales del repo.
+- El runner de Spark no trae PyYAML; se instala con pip en el volumen persistente del
+  contenedor (ver actualización del ADR 0004). Se descartó un lector de YAML propio por ser
+  código que nadie quiere mantener.

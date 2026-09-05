@@ -5,12 +5,18 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote, urlparse
 
-from pipelines.spark_jobs.yaml_lite import load_yaml_file
+import yaml
 
 BOM = "\ufeff"
 DEFAULT_TABLES_PATH = Path(__file__).with_name("bronze_tables.yaml")
+
+
+def load_yaml_file(path: Path | str) -> Any:
+    """Lee y parsea un archivo YAML (PyYAML, instalado en el runner por ADR 0004)."""
+    return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
 
 
 @dataclass(frozen=True)

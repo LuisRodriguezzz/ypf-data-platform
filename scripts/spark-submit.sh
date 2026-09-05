@@ -10,6 +10,12 @@ export MSYS_NO_PATHCONV=1
 # Se entra al repo y se usa una ruta relativa: podman-compose es un binario de Windows y no
 # entiende las rutas estilo /c/Users que arma Git Bash.
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+# La imagen no trae PyYAML (ADR 0004): se instala con `pip install --user` antes de correr el
+# job. Persiste en el volumen `ivy-cache` (montado en /home/spark), así que solo la primera
+# corrida lo descarga; las siguientes lo saltean.
 # La imagen no tiene /opt/spark/bin en el PATH: se invoca el binario por ruta absoluta.
+# "$@" después de "bash" arma los posicionales del `bash -c` sin pasar por un shell, así que
+# los argumentos con espacios llegan intactos sin escaparlos a mano.
 exec podman-compose -f infra/docker/compose.yaml --profile spark run --rm spark \
-  /opt/spark/bin/spark-submit "$@"
+  bash -c 'python3 -m pip install --user --quiet --disable-pip-version-check -r /app/pipelines/spark_jobs/requirements-runner.txt && /opt/spark/bin/spark-submit "$@"' \
+  bash "$@"
