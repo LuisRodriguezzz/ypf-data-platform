@@ -4,9 +4,12 @@ name: ypf-lakehouse
 #   core      -> MinIO (S3), Postgres (metadata), catálogo Iceberg REST      [siempre]
 #   spark     -> runner efímero de Spark (ADR 0004), no es un servicio        [etapa 1]
 #   airflow   -> orquestador; lanza el runner por tarea (ADR 0006)            [etapa 1]
-#   streaming -> Kafka + productor de replay 3W                               [etapa 2]
+#   streaming -> broker de Kafka (KRaft) para la telemetría 3W                 [etapa 2]
+#   mlflow    -> tracking server y model registry del módulo de ML (ADR 0012)  [etapa 2]
 # Uso: podman-compose --profile core up -d
 #      podman-compose --profile core --profile airflow up -d   # UI en http://localhost:8080
+#      podman-compose --profile core --profile streaming up -d # o scripts/streaming-up.ps1
+#      podman-compose --profile core --profile mlflow up -d    # UI en http://localhost:5000
 #      scripts/spark-submit.ps1 pipelines/spark_jobs/bronze_load.py --dataset produccion_pozo
 
 x-minio-env: &minio-env
@@ -27,6 +30,13 @@ x-lakehouse-env: &lakehouse-env
   ICEBERG_CATALOG_URI: http://iceberg-rest:8181
   ICEBERG_WAREHOUSE: s3://lakehouse/warehouse
   POSTGRES_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/lakehouse
+  # Listener interno del broker: lo usan el job de streaming y el productor cuando corren
+  # dentro de la red del compose. Desde el host se usa localhost:29092 (ver config/local.env).
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  # Tracking server de MLflow visto desde la red del compose. Desde el host es localhost:5000
+  # (ver config/local.env). `runner.py` no reenvía esta variable (no está en FORWARDED_ENV),
+  # así que el DAG ml_mensual la pone delante del comando; acá sirve al servicio `spark`.
+  MLFLOW_TRACKING_URI: http://mlflow:5000
 
 services:
   minio:
@@ -63,8 +73,9 @@ services:
       mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
       mc mb --ignore-existing local/landing &&
       mc mb --ignore-existing local/lakehouse &&
+      mc mb --ignore-existing local/mlflow &&
       mc version enable local/landing &&
-      echo 'buckets listos: landing, lakehouse'
+      echo 'buckets listos: landing, lakehouse, mlflow'
       "
     restart: "no"
 
@@ -100,7 +111,12 @@ services:
     environment:
       <<: *minio-env
       CATALOG_CATALOG__IMPL: org.apache.iceberg.jdbc.JdbcCatalog
-      CATALOG_URI: jdbc:sqlite:file:/data/iceberg_catalog.db
+      # busy_timeout: con streaming hay dos queries que commitean a la vez y SQLite acepta un
+      # solo escritor; sin esto la segunda recibe SQLITE_BUSY y el catálogo devuelve 500, lo
+      # que mata la query. Con el timeout la commit espera su turno en vez de fallar.
+      # La ruta va sin el prefijo `file:` porque sqlite-jdbc solo interpreta los pragmas de la
+      # query string cuando la URL trae el path pelado.
+      CATALOG_URI: jdbc:sqlite:/data/iceberg_catalog.db?busy_timeout=30000
       CATALOG_JDBC_USER: iceberg
       CATALOG_JDBC_PASSWORD: iceberg
       CATALOG_WAREHOUSE: s3://lakehouse/warehouse
@@ -174,6 +190,101 @@ services:
       # API de Podman: es lo que abre el DockerOperator para lanzar el runner.
       - podman-socket:/var/run/podman
     restart: unless-stopped
+
+  # Tracking server y model registry de MLflow (ADR 0012). Backend en Postgres —el registry de
+  # modelos y los alias no funcionan contra un backend de archivos— y artefactos en el bucket
+  # `mlflow` de MinIO.
+  #
+  # Los artefactos van a `s3://mlflow/` y cada cliente habla con MinIO por su cuenta: el host
+  # por `localhost:9000` y el runner por `minio:9000`, que es lo que ya sabe `LakehouseConfig`.
+  # Se probó `--serve-artifacts` para que el server hiciera de proxy y no anda en este entorno:
+  # la subida pasa por el server, pero la bajada devuelve una URL prefirmada apuntando al
+  # endpoint del server (`minio:9000`), que desde Windows no resuelve.
+  #
+  # El `pip install` del arranque es porque la imagen oficial no trae ni el driver de Postgres
+  # ni boto3: son 2 paquetes y se instalan al crear el contenedor, no en cada `up`. Mantener
+  # una imagen propia para eso sería más infraestructura de la que el proyecto necesita.
+  #
+  # `--allowed-hosts` porque MLflow 3 valida el header Host contra una lista blanca que por
+  # defecto es solo localhost: sin `mlflow:5000` el runner recibe 403 "Invalid Host header".
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.16.0
+    profiles: ["mlflow"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *minio-env
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    command:
+      - /bin/sh
+      - -c
+      - >
+        pip install --quiet --no-cache-dir --root-user-action=ignore
+        psycopg2-binary==2.9.11 boto3==1.43.89 &&
+        mlflow server --host 0.0.0.0 --port 5000
+        --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/mlflow
+        --default-artifact-root s3://mlflow/
+        --allowed-hosts localhost:5000,127.0.0.1:5000,mlflow:5000
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  # Broker de Kafka en modo KRaft (ADR 0011): un solo nodo que es broker y controller a la
+  # vez, sin Zookeeper (Kafka 4 ya no lo usa). Dos listeners porque hay dos clientes posibles:
+  # `kafka:9092` desde la red del compose (runner de Spark) y `localhost:29092` desde el host
+  # (el productor de replay). Un cliente solo puede conectarse por el listener cuyo
+  # advertised host resuelve desde donde corre.
+  kafka:
+    image: apache/kafka:4.1.2
+    profiles: ["streaming"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # Con un solo broker todo lo que por defecto pide tres réplicas tiene que bajar a una.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # 512 MB de heap alcanzan para 13 particiones en local y le dejan la RAM a Spark.
+      KAFKA_HEAP_OPTS: -Xmx512m -Xms256m
+    ports:
+      - "29092:29092"
+    # Sin volumen a propósito: el log del topic vive en la capa escribible del contenedor.
+    # La demo se apaga al terminar y el topic se vuelve a crear en el próximo `up`; un volumen
+    # nuevo lo crea Podman como root y el proceso de Kafka (uid 1000) no podría escribirlo.
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    restart: unless-stopped
+
+  # Crea el topic una sola vez (idempotente), igual que minio-init con los buckets.
+  # 13 particiones = los 13 equipos concurrentes que reporta el RTIC; la clave del mensaje es
+  # el idpozo, así todas las lecturas de un pozo caen siempre en la misma partición y llegan
+  # ordenadas al consumidor.
+  kafka-init:
+    image: apache/kafka:4.1.2
+    profiles: ["streaming"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists
+      --topic telemetria_pozo --partitions 13 --replication-factor 1 &&
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic telemetria_pozo
+      "
+    restart: "no"
 
 volumes:
   minio-data:

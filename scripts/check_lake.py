@@ -98,6 +98,7 @@ def print_rejects(table: Table, name: str) -> None:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Muestra el estado de una capa del lakehouse")
     parser.add_argument("--namespace", default="bronze", help="bronze, silver o gold")
+    parser.add_argument("--table", help="mostrar una sola tabla del namespace")
     return parser.parse_args(argv)
 
 
@@ -108,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
     catalog = open_catalog(config)
 
     names = table_names(catalog, args.namespace)
+    if args.table:
+        names = [name for name in names if name == args.table]
     print(f"namespace {args.namespace}: {len(names)} tabla(s)")
     for name in names:
         print(f"  - {name}")

@@ -29,6 +29,7 @@ class LakehouseConfig:
     iceberg_warehouse: str
     glue_warehouse: str
     postgres_dsn: str
+    kafka_bootstrap_servers: str
 
     @property
     def is_aws(self) -> bool:
@@ -74,4 +75,7 @@ def load_config(env_file: Path | str | None = None) -> LakehouseConfig:
         # Solo se usa con LAKEHOUSE_TARGET=aws: es el warehouse del Glue Data Catalog.
         glue_warehouse=value("GLUE_WAREHOUSE", ""),
         postgres_dsn=value("POSTGRES_DSN", ""),
+        # Desde el host el broker se ve en localhost:29092; adentro del compose el servicio
+        # `spark` recibe KAFKA_BOOTSTRAP_SERVERS=kafka:9092 y pisa este valor.
+        kafka_bootstrap_servers=value("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092"),
     )

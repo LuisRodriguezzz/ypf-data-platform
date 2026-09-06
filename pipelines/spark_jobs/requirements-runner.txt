@@ -20,6 +20,25 @@ openpyxl==3.1.5
 pyiceberg==0.12.0
 pyarrow==25.0.1
 
+# Streaming: el productor de replay puede correr en el runner contra kafka:9092 (ADR 0011).
+# El consumidor no lo necesita: Spark habla con Kafka por el jar spark-sql-kafka-0-10.
+confluent-kafka==2.15.0
+
+# ML: el DAG ml_mensual corre `pipelines.ml.entrenar` y `pipelines.ml.predecir` en este mismo
+# runner (ADR 0012). `mlflow-skinny` y no `mlflow`: el cliente alcanza para loguear, registrar
+# y cargar modelos; el paquete completo suma el server (FastAPI, uvicorn, alembic) que acá no
+# corre. Las versiones son identicas a las del host y son las ultimas con rueda para Python
+# 3.10: un pipeline guardado con scikit-learn 1.7.2 tiene que cargarse con 1.7.2.
+mlflow-skinny==3.16.0
+numpy==2.2.6
+pandas==2.3.3
+scikit-learn==1.7.2
+shap==0.49.1
+matplotlib==3.10.9
+# skops es el formato con el que MLflow 3 guarda los modelos de scikit-learn. Lo trae el
+# paquete `mlflow` completo pero no `mlflow-skinny`, y sin el `load_model` no puede leerlos.
+skops==0.14.0
+
 # Gold: dbt corre adentro del runner con el adaptador de Spark en modo sesion (ADR 0009).
 # Sin el extra [session] a proposito: lo unico que agrega es `pyspark`, que la imagen ya trae
 # en 4.0.4; instalarlo desde PyPI bajaria 400 MB de una segunda copia al volumen.
