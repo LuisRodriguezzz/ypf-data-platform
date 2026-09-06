@@ -19,3 +19,9 @@ requests==2.34.2
 openpyxl==3.1.5
 pyiceberg==0.12.0
 pyarrow==25.0.1
+
+# Gold: dbt corre adentro del runner con el adaptador de Spark en modo sesion (ADR 0009).
+# Sin el extra [session] a proposito: lo unico que agrega es `pyspark`, que la imagen ya trae
+# en 4.0.4; instalarlo desde PyPI bajaria 400 MB de una segunda copia al volumen.
+dbt-core==1.11.14
+dbt-spark==1.11.0

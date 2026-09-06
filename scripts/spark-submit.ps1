@@ -2,7 +2,10 @@
 # Uso: scripts\spark-submit.ps1 pipelines\spark_jobs\bronze_load.py --dataset produccion_pozo
 # Requiere el perfil core levantado: podman-compose --profile core up -d
 
-$ErrorActionPreference = "Stop"
+# `Continue` y no `Stop`: podman-compose escribe avisos en stderr y con `Stop` PowerShell los
+# toma como error, lo que rompe el script cuando lo llama un proceso sin TTY. El control se
+# hace mirando el codigo de salida del comando (mismo patron que scripts/aws_deploy.ps1).
+$ErrorActionPreference = "Continue"
 $compose = Join-Path (Split-Path -Parent $PSScriptRoot) "infra\docker\compose.yaml"
 
 # La imagen no trae las dependencias Python del proyecto (ADR 0004): se instalan con

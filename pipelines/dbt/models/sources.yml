@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: silver
+    description: >
+      Capa silver del lakehouse: tablas Iceberg tipadas y validadas por los contratos de
+      `pipelines/contracts/` (ADR 0005). Gold no lee bronze ni landing.
+    schema: silver
+
+    tables:
+      - name: produccion_pozo
+        description: "Producción mensual declarada por pozo (DDJJ), 2006 en adelante. Grano pozo-mes."
+
+      - name: pozo_primera_produccion
+        description: "Padrón de pozos con el año y mes en que produjeron por primera vez."
+
+      - name: fractura
+        description: "Operaciones de fractura del Adjunto IV. Una fila por tratamiento declarado."
+
+      - name: reservas
+        description: "Reservas y recursos por yacimiento al 31/12, en formato largo (una fila por celda)."

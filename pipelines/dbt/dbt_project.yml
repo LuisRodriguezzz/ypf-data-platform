@@ -1,0 +1,19 @@
+name: gold
+version: 1.0.0
+config-version: 2
+profile: ypf_gold
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+models:
+  gold:
+    # Todo gold son tablas Iceberg en el catálogo `lake`, igual que bronze y silver.
+    +file_format: iceberg
+    dimensiones:
+      +materialized: table
+    hechos:
+      +materialized: table
+    marts:
+      +materialized: table

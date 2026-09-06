@@ -8,7 +8,13 @@ lanza el runner de Spark con un comando y espera a que muera (ADR 0006). `runner
 | --- | --- | --- |
 | `produccion_pozo_mensual` | `@monthly` | ingesta → bronze → silver `produccion_pozo` → silver `pozo_primera_produccion` |
 | `fractura_diaria` | `@daily` | ingesta → bronze → silver `fractura` |
-| `reservas_mensual` | `@monthly` | ingesta |
+| `reservas_mensual` | `@monthly` | ingesta → bronze → silver `reservas` |
+| `gold_mensual` | día 1 a las 6 | `dbt build` (modelos y tests de gold, ADR 0009) |
+
+`gold_mensual` espera a las fuentes por calendario y no con un `ExternalTaskSensor`: los tres
+DAGs de origen no comparten schedule, así que un sensor pediría un `execution_date_fn` por cada
+uno para alinear intervalos que no coinciden. Corre seis horas después; el motivo está escrito
+en el `doc_md` del DAG.
 
 ## Levantar
 

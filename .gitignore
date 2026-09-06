@@ -22,6 +22,11 @@ infra/terraform/.terraform/
 spark-warehouse/
 metastore_db/
 orchestration/logs/
+# dbt: en el runner los artefactos van al volumen (/home/spark/dbt, ver ADR 0009); esto cubre
+# una corrida hecha desde el host, que los dejaria al lado del proyecto
+pipelines/dbt/target/
+pipelines/dbt/logs/
+pipelines/dbt/dbt_packages/
 
 # artefacto de Windows por redirecciones
 NUL
