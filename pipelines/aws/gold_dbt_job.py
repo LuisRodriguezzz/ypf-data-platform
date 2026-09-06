@@ -30,6 +30,9 @@ ENV_ARGS = (
     "S3_DATA_DIR",
     "ATHENA_WORKGROUP",
     "ATHENA_DATABASE",
+    # Sufijo del ambiente. `profiles.yml` arma con él el schema de gold y `sources.yml`
+    # el de silver, así los mismos modelos escriben en `gold_dev` o en `gold_prod`.
+    "GLUE_DATABASE_SUFFIX",
 )
 
 PROJECT_DIR = Path(pipelines.__file__).resolve().parent / "dbt"

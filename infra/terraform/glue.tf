@@ -1,19 +1,25 @@
 # Catálogo y jobs. El catálogo Spark se sigue llamando `lake` (igual que en local); acá
 # `lake.bronze.x` se resuelve contra la base `bronze` del Glue Data Catalog.
 
+# Las tres bases llevan el sufijo del ambiente con guion bajo (`silver_dev`, `silver_prod`)
+# porque además de nombres de AWS son identificadores de SQL: en Athena se escribe
+# `SELECT ... FROM silver_dev.produccion_pozo` sin comillas. El código no las nombra: los
+# YAML de contratos siguen diciendo `lake.silver.fractura` y los jobs le pegan el sufijo al
+# namespace leyendo `GLUE_DATABASE_SUFFIX` (ADR 0014).
+
 resource "aws_glue_catalog_database" "bronze" {
-  name        = "bronze"
-  description = "Capa bronze: CSV de landing copiados a Iceberg sin tipar."
+  name        = "bronze${local.sufijo_bajo}"
+  description = "Capa bronze: CSV de landing copiados a Iceberg sin tipar (${var.environment})."
 }
 
 resource "aws_glue_catalog_database" "silver" {
-  name        = "silver"
-  description = "Capa silver: tablas tipadas según los contratos de pipelines/contracts."
+  name        = "silver${local.sufijo_bajo}"
+  description = "Capa silver: tablas tipadas según los contratos de pipelines/contracts (${var.environment})."
 }
 
 resource "aws_glue_catalog_database" "gold" {
-  name        = "gold"
-  description = "Capa gold: modelo dimensional construido con dbt sobre Athena (ADR 0010)."
+  name        = "gold${local.sufijo_bajo}"
+  description = "Capa gold: modelo dimensional construido con dbt sobre Athena, ADR 0010 (${var.environment})."
 }
 
 locals {
@@ -27,6 +33,10 @@ locals {
     "--S3_LANDING_BUCKET" = aws_s3_bucket.lakehouse.bucket
     "--S3_LANDING_PREFIX" = "landing"
     "--S3_REGION"         = var.region
+    # Sufijo del ambiente para las bases del catálogo: `lake.bronze` -> `lake.bronze_dev`.
+    # Lo aplican `pipelines/spark_jobs/bronze_rules.with_suffix` y, en dbt, el `env_var`
+    # de `models/sources.yml` y `profiles.yml`.
+    "--GLUE_DATABASE_SUFFIX" = local.sufijo_bajo
   }
 
   # Los jars de Iceberg los pone Glue con --datalake-formats: no hay spark.jars.packages.
@@ -49,7 +59,7 @@ locals {
 # Ingesta: baja los CSV del portal a landing/. Es I/O de red, no necesita Spark, así que va
 # como Python shell con 1/16 de DPU (lo más barato que ofrece Glue).
 resource "aws_glue_job" "ingest_landing" {
-  name         = "ingest_landing"
+  name         = "ingest_landing${local.sufijo_bajo}"
   description  = "Descarga los recursos de un dataset a landing/ y registra el manifiesto."
   role_arn     = aws_iam_role.glue_job.arn
   max_capacity = 0.0625
@@ -73,17 +83,17 @@ resource "aws_glue_job" "ingest_landing" {
     "--additional-python-modules" = "sqlalchemy==2.0.52,psycopg[binary]==3.2.13,pydantic-settings==2.9.1,pyyaml==6.0.3"
     "--library-set"               = "analytics"
     # El DSN es secreto: viaja por SSM, nunca en los argumentos del job.
-    "--POSTGRES_DSN_SSM_PARAMETER" = var.postgres_dsn_ssm_parameter
+    "--POSTGRES_DSN_SSM_PARAMETER" = local.postgres_dsn_ssm_parameter
   })
 }
 
 resource "aws_glue_job" "bronze_load" {
-  name              = "bronze_load"
+  name              = "bronze_load${local.sufijo_bajo}"
   description       = "Copia los CSV de landing a las tablas Iceberg de bronze."
   role_arn          = aws_iam_role.glue_job.arn
   glue_version      = "5.0"
   worker_type       = "G.1X"
-  number_of_workers = 2
+  number_of_workers = var.number_of_workers
   max_retries       = 0
   timeout           = 60
 
@@ -94,7 +104,7 @@ resource "aws_glue_job" "bronze_load" {
   }
 
   default_arguments = merge(local.spark_arguments, {
-    "--POSTGRES_DSN_SSM_PARAMETER" = var.postgres_dsn_ssm_parameter
+    "--POSTGRES_DSN_SSM_PARAMETER" = local.postgres_dsn_ssm_parameter
   })
 }
 
@@ -102,7 +112,7 @@ resource "aws_glue_job" "bronze_load" {
 # algo que Spark no lee. Va como Python shell y escribe la tabla Iceberg con pyiceberg contra
 # el Glue Data Catalog (pipelines/reservas/bronze_load.py).
 resource "aws_glue_job" "bronze_reservas" {
-  name        = "bronze_reservas"
+  name        = "bronze_reservas${local.sufijo_bajo}"
   description = "Parsea el XLSX anual de reservas de landing/ y escribe bronze.reservas."
   role_arn    = aws_iam_role.glue_job.arn
   # 1 DPU (16 GB) y no 1/16: openpyxl levanta la planilla entera en memoria y pyarrow arma
@@ -127,17 +137,17 @@ resource "aws_glue_job" "bronze_reservas" {
     # pydantic-settings no lo usa este job, pero `pipelines.ingest.__init__` reexporta
     # `Settings` y basta con importar el manifiesto para que haga falta.
     "--additional-python-modules"  = "pyiceberg[glue]==0.10.0,pyarrow==17.0.0,openpyxl==3.1.5,sqlalchemy==2.0.52,psycopg[binary]==3.2.13,pydantic-settings==2.9.1"
-    "--POSTGRES_DSN_SSM_PARAMETER" = var.postgres_dsn_ssm_parameter
+    "--POSTGRES_DSN_SSM_PARAMETER" = local.postgres_dsn_ssm_parameter
   })
 }
 
 resource "aws_glue_job" "silver_load" {
-  name              = "silver_load"
+  name              = "silver_load${local.sufijo_bajo}"
   description       = "Aplica un contrato de datos sobre bronze y escribe la tabla silver."
   role_arn          = aws_iam_role.glue_job.arn
   glue_version      = "5.0"
   worker_type       = "G.1X"
-  number_of_workers = 2
+  number_of_workers = var.number_of_workers
   max_retries       = 0
   timeout           = 60
 
@@ -154,12 +164,12 @@ resource "aws_glue_job" "silver_load" {
 # corre igual sobre Glue 5.0 y no sobre Python shell porque Python shell sigue clavado en
 # Python 3.9 y dbt-core lo dejó de soportar en la 1.11.
 resource "aws_glue_job" "gold_dbt" {
-  name              = "gold_dbt"
+  name              = "gold_dbt${local.sufijo_bajo}"
   description       = "Construye el modelo dimensional de gold corriendo dbt sobre Athena."
   role_arn          = aws_iam_role.glue_job.arn
   glue_version      = "5.0"
   worker_type       = "G.1X"
-  number_of_workers = 2
+  number_of_workers = var.number_of_workers
   max_retries       = 0
   timeout           = 60
 
@@ -180,7 +190,10 @@ resource "aws_glue_job" "gold_dbt" {
     "--AWS_REGION"       = var.region
     "--ATHENA_WORKGROUP" = aws_athena_workgroup.lakehouse.name
     "--ATHENA_DATABASE"  = "awsdatacatalog"
-    "--S3_STAGING_DIR"   = "${local.bucket_uri}/athena-results/"
+    # `schema: "gold{{ env_var('GLUE_DATABASE_SUFFIX', '') }}"` en profiles.yml y lo mismo
+    # para las fuentes de silver en models/sources.yml: un solo sufijo para todo el proyecto.
+    "--GLUE_DATABASE_SUFFIX" = local.sufijo_bajo
+    "--S3_STAGING_DIR"       = "${local.bucket_uri}/athena-results/"
     # Los datos de las tablas van al warehouse y no debajo de athena-results/, que la regla
     # de ciclo de vida del bucket vacía a los 7 días.
     "--S3_DATA_DIR" = "${local.bucket_uri}/warehouse/gold/"

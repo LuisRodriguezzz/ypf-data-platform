@@ -27,11 +27,16 @@ $tf = (Get-Command terraform -ErrorAction SilentlyContinue).Source
 if (-not $tf) {
   $tf = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages" -Recurse -Filter terraform.exe -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
 }
+# Los outputs salen del workspace seleccionado: se publica en el ambiente en el que uno
+# este parado. Se imprime antes de subir nada, que es barato y evita subir a prod creyendo
+# que se sube a dev (ADR 0014).
+$ambiente = & $tf -chdir="$terraform" output -raw environment
+Invoke-O-Fallar "terraform output environment"
 $bucket = & $tf -chdir="$terraform" output -raw lakehouse_bucket
 Invoke-O-Fallar "terraform output"
 $destino = "s3://$bucket/artifacts"
 
-Write-Host "== subiendo a $destino =="
+Write-Host "== ambiente $ambiente: subiendo a $destino =="
 & $aws s3 cp $wheel.FullName "$destino/$($wheel.Name)"
 Invoke-O-Fallar "aws s3 cp del wheel"
 # Todos los *_job.py de golpe: un job nuevo no necesita tocar este script.

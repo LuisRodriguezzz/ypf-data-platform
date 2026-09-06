@@ -28,6 +28,7 @@ class LakehouseConfig:
     iceberg_catalog_uri: str
     iceberg_warehouse: str
     glue_warehouse: str
+    glue_database_suffix: str
     postgres_dsn: str
     kafka_bootstrap_servers: str
 
@@ -74,6 +75,10 @@ def load_config(env_file: Path | str | None = None) -> LakehouseConfig:
         iceberg_warehouse=value("ICEBERG_WAREHOUSE", "s3://lakehouse/warehouse"),
         # Solo se usa con LAKEHOUSE_TARGET=aws: es el warehouse del Glue Data Catalog.
         glue_warehouse=value("GLUE_WAREHOUSE", ""),
+        # Sufijo del ambiente para las bases del catálogo: `bronze` -> `bronze_dev`. En aws
+        # lo pone Terraform como argumento del job (ADR 0014); en local queda vacío, porque
+        # el catálogo del compose es de una sola persona y no comparte cuenta con nadie.
+        glue_database_suffix=value("GLUE_DATABASE_SUFFIX", ""),
         postgres_dsn=value("POSTGRES_DSN", ""),
         # Desde el host el broker se ve en localhost:29092; adentro del compose el servicio
         # `spark` recibe KAFKA_BOOTSTRAP_SERVERS=kafka:9092 y pisa este valor.

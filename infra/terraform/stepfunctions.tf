@@ -118,17 +118,19 @@ locals {
 resource "aws_sfn_state_machine" "pipeline" {
   for_each = local.definiciones
 
-  name       = each.key
+  # Guion bajo, como los nombres de los pipelines y de los DAGs de Airflow.
+  name       = "${each.key}${local.sufijo_bajo}"
   role_arn   = aws_iam_role.step_functions.arn
   definition = jsonencode(each.value)
 }
 
-# Los schedules nacen deshabilitados: el entorno no tiene que quedar corriendo solo. Se
-# habilitan con `terraform apply -var enable_schedule=true`.
+# Los schedules nacen deshabilitados en los dos ambientes: el entorno no tiene que quedar
+# corriendo solo y el costo en reposo tiene que seguir siendo cero (ADR 0008). Se habilitan
+# a propósito cambiando `enable_schedule` en `envs/<ambiente>.tfvars`.
 resource "aws_scheduler_schedule" "pipeline" {
   for_each = local.crons
 
-  name                         = replace(each.key, "_", "-")
+  name                         = "${replace(each.key, "_", "-")}${local.sufijo}"
   state                        = var.enable_schedule ? "ENABLED" : "DISABLED"
   schedule_expression          = each.value
   schedule_expression_timezone = "America/Argentina/Buenos_Aires"

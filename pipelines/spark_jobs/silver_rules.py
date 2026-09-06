@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pipelines.spark_jobs.bronze_rules import load_yaml_file, namespace_of
+from pipelines.spark_jobs.bronze_rules import load_yaml_file, namespace_of, with_suffix
 
 # pipelines/spark_jobs/silver_rules.py -> pipelines/contracts
 CONTRACTS_DIR = Path(__file__).resolve().parents[1] / "contracts"
@@ -106,13 +106,17 @@ def contract_names(directory: Path | str | None = None) -> list[str]:
     return sorted(path.stem for path in Path(directory or CONTRACTS_DIR).glob("*.yaml"))
 
 
-def load_contract(name: str, directory: Path | str | None = None) -> Contract:
-    """Lee el contrato del YAML y valida que sea coherente."""
+def load_contract(name: str, directory: Path | str | None = None, suffix: str = "") -> Contract:
+    """Lee el contrato del YAML y valida que sea coherente.
+
+    `suffix` es el del ambiente (`_dev`, `_prod`): el contrato nombra `lake.silver.fractura`
+    y en AWS la base real es `silver_dev`. Ver `with_suffix` y el ADR 0014.
+    """
     raw = load_yaml_file(contract_path(name, directory))
     contract = Contract(
         name=name,
-        table=raw["table"],
-        source=raw["source"],
+        table=with_suffix(raw["table"], suffix),
+        source=with_suffix(raw["source"], suffix),
         primary_key=tuple(raw["primary_key"]),
         partition_by=tuple(raw.get("partition_by") or ()),
         dedupe_by=raw.get("dedupe_by"),

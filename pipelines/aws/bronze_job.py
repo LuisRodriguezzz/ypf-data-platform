@@ -14,7 +14,13 @@ from awsglue.utils import getResolvedOptions
 from pipelines.aws.ssm import parameter_value
 from pipelines.spark_jobs.bronze_load import main as bronze_main
 
-ENV_ARGS = ("LAKEHOUSE_TARGET", "GLUE_WAREHOUSE", "S3_LANDING_BUCKET", "S3_REGION")
+ENV_ARGS = (
+    "LAKEHOUSE_TARGET",
+    "GLUE_WAREHOUSE",
+    "GLUE_DATABASE_SUFFIX",
+    "S3_LANDING_BUCKET",
+    "S3_REGION",
+)
 
 
 def main() -> int:

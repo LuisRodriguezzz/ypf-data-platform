@@ -82,6 +82,7 @@ como reales.
 | `orchestration/dags/` | Airflow que **solo orquesta**: cada tarea lanza un contenedor efímero |
 | `infra/terraform/` | **IaC** completa del destino aws: 29 recursos, `terraform destroy` deja costo cero |
 | `.github/workflows/ci.yml` | **CI** en tres jobs: lint y tests, `terraform validate`, y que los DAGs importen |
+| `.github/workflows/deploy.yml` | **CD por ambiente**: plan en el PR, apply de dev en `main`, prod con aprobación manual y OIDC (escrito, deshabilitado) |
 
 ## Correrlo
 
@@ -113,10 +114,17 @@ después `uv run python -m pipelines.ml.entrenar`) y `--profile streaming` con
 
 ```powershell
 cd infra\terraform
-terraform init; terraform apply       # 29 recursos: S3, Glue, Step Functions, Athena, IAM
-..\..\scripts\aws_deploy.ps1          # wheel del proyecto + wrappers de los jobs a S3
+terraform init
+terraform workspace select -or-create prod    # un workspace por ambiente (ADR 0014)
+terraform apply -var-file=envs\prod.tfvars    # 29 recursos: S3, Glue, Step Functions, Athena, IAM
+..\..\scripts\aws_deploy.ps1                  # wheel del proyecto + wrappers de los jobs a S3
 aws stepfunctions start-execution --state-machine-arn <arn> --input '{}'
 ```
+
+Los ambientes `dev` y `prod` conviven en la misma cuenta: `environment` sufija el nombre de
+cada recurso (`ypf-lakehouse-<cuenta>-dev`, `bronze_dev`, `bronze_load_dev`) y cada uno tiene
+su propio state, aislado con un workspace de Terraform. Todavía no están aplicados: ver
+"Qué se verificó y qué no".
 
 **Costos medidos** (2026-09-06): reconstruir el entorno entero desde cero —cuatro máquinas de
 estados, incluidas las descargas— cuesta **menos de 2 USD** y tarda alrededor de una hora. El
@@ -162,8 +170,15 @@ Lo que sigue son limitaciones reales del proyecto, no pendientes de redacción.
   AWS el catálogo es Glue y el problema no existe.
 - **Los jobs de Glue no corren en paralelo.** Dos pipelines de fuente comparten `ingest_landing`
   y `silver_load`, así que las máquinas de estados se disparan de a una.
-- **No hay ambientes dev/prod.** Hay un destino local y un destino aws efímero, con un solo
-  `terraform.tfstate` local y sin backend remoto ni workspaces.
+- **Los ambientes dev y prod están definidos en código pero todavía no aplicados.** La
+  variable `environment` sufija los 29 recursos, hay un tfvars por ambiente, un workspace de
+  Terraform por state y un `deploy.yml` con OIDC y aprobación manual en prod
+  ([ADR 0014](docs/adr/0014-ambientes-dev-prod.md)). Nada de eso corrió contra AWS: lo que hay
+  desplegado sigue siendo el destino único sin sufijo, el state sigue siendo local,
+  `infra/terraform/bootstrap/` (backend S3, tabla de locks, roles de OIDC) nunca se aplicó y
+  el workflow está deshabilitado a propósito (`if: vars.DEPLOY_ENABLED == 'true'`). Migrar lo
+  que hay recrea los 29 recursos, porque en AWS el nombre es la identidad: el procedimiento y
+  la recomendación están en [`infra/terraform/README.md`](infra/terraform/README.md).
 - **No hay alertas externas.** Las fallas quedan en el log de Airflow, escritas por un callback
   compartido (`orchestration/dags/alertas.py`); conectar correo o Slack es cambiar esa función y
   nada más. Un webhook en un repo público sería un secreto en el repo.
@@ -179,7 +194,7 @@ Lo que sigue son limitaciones reales del proyecto, no pendientes de redacción.
 - **Decisiones de arquitectura** — [`docs/adr/`](docs/adr/): un stack dos destinos (0001),
   DuckDB y Athena (0002), catálogo SQLite (0003), Spark en contenedor (0004), contratos en YAML
   (0005), Airflow solo orquesta (0006), CI (0007), Glue y Step Functions (0008), gold con dbt
-  (0009), gold en aws con dbt-athena (0010), streaming (0011), ML con MLflow (0012).
+  (0009), gold en aws con dbt-athena (0010), streaming (0011), ML con MLflow (0012), ambientes dev y prod (0014).
 - **Fuentes** — [`docs/fuentes/`](docs/fuentes/): perfil medido de fractura, reservas y 3W;
   [`docs/semana-0-derisking.md`](docs/semana-0-derisking.md) tiene las pruebas contra las
   fuentes reales previas a escribir infraestructura.

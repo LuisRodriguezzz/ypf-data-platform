@@ -15,9 +15,15 @@ config/*.local.env
 # wheel que se sube a artifacts/ (se regenera con `uv build`)
 dist/
 # terraform
-infra/terraform/.terraform/
+# sin prefijo de ruta: hay dos directorios raiz (infra/terraform y su bootstrap/)
+.terraform/
 *.tfstate
 *.tfstate.backup
+# states de los workspaces (terraform.tfstate.d/dev, .../prod) mientras el backend sea local
+terraform.tfstate.d/
+.terraform.tfstate.lock.info
+# plan guardado con -out: es binario y puede traer valores de la cuenta
+*.tfplan
 # spark / airflow locales
 spark-warehouse/
 metastore_db/

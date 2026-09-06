@@ -2,8 +2,10 @@
 # escriben los jobs a través del Glue Data Catalog: no hay que declarar nada acá.
 
 resource "aws_athena_workgroup" "lakehouse" {
-  name        = "ypf-lakehouse"
-  description = "Consultas sobre bronze y silver del lakehouse."
+  # Uno por ambiente: el workgroup fija dónde caen los resultados, y los de dev no tienen
+  # por qué escribir en el bucket de prod.
+  name        = "ypf-lakehouse${local.sufijo}"
+  description = "Consultas sobre bronze y silver del lakehouse (${var.environment})."
 
   # El bucket se borra con el entorno; el workgroup no puede quedar apuntando a la nada.
   force_destroy = true

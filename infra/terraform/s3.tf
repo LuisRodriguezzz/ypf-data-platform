@@ -7,7 +7,7 @@
 data "aws_caller_identity" "actual" {}
 
 locals {
-  bucket_name = "ypf-lakehouse-${data.aws_caller_identity.actual.account_id}${var.bucket_suffix}"
+  bucket_name = "ypf-lakehouse-${data.aws_caller_identity.actual.account_id}${local.sufijo}"
   bucket_uri  = "s3://${aws_s3_bucket.lakehouse.bucket}"
 }
 
@@ -17,6 +17,17 @@ resource "aws_s3_bucket" "lakehouse" {
   # Entorno efímero: `terraform destroy` tiene que poder borrarlo con datos adentro.
   # Los datos se regeneran corriendo el pipeline; no hay nada que no se pueda rehacer.
   force_destroy = true
+
+  lifecycle {
+    # El workspace es lo único que separa los dos states (ADR 0014) y el tfvars es lo único
+    # que separa los nombres: aplicar `envs/dev.tfvars` parado en el workspace `prod`
+    # escribiría los recursos de dev en el state de prod y dejaría los de prod huérfanos.
+    # Se chequea acá, en el primer recurso del que cuelga todo lo demás, y no en un runbook.
+    precondition {
+      condition     = terraform.workspace == var.environment
+      error_message = "El workspace (${terraform.workspace}) no coincide con environment (${var.environment}): correr `terraform workspace select ${var.environment}`."
+    }
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "lakehouse" {

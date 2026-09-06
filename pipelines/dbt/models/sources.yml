@@ -15,7 +15,9 @@ sources:
     description: >
       Capa silver del lakehouse: tablas Iceberg tipadas y validadas por los contratos de
       `pipelines/contracts/` (ADR 0005). Gold no lee bronze ni landing.
-    schema: silver
+    # El sufijo del ambiente (`silver_dev`, `silver_prod`) lo pone Terraform como argumento
+    # del job de gold; vacío en local, donde no hay ambientes (ADR 0014).
+    schema: "silver{{ env_var('GLUE_DATABASE_SUFFIX', '') }}"
     # Todas las tablas que escribe `silver_load.py` llevan esta columna (ADR 0005).
     loaded_at_field: _silver_loaded_at
 
@@ -84,7 +86,7 @@ sources:
       Tablas de gold que **no** escribe dbt. Hoy es una sola: la salida de la inferencia batch
       del módulo de ML (ADR 0012), que escribe `pipelines/ml/predecir.py` con pyiceberg. Se
       declara como source y no como modelo porque dbt no la produce: solo la mira.
-    schema: gold
+    schema: "gold{{ env_var('GLUE_DATABASE_SUFFIX', '') }}"
 
     tables:
       - name: prediccion_produccion_12m

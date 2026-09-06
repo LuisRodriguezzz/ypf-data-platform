@@ -37,3 +37,8 @@ públicas reales. Esa integración se corre local, a mano, contra el compose de
 - Cuando el destino `aws` (ADR 0001) tenga Terraform en `infra/terraform/`, este workflow suma
   un job de `terraform validate` (y `terraform fmt -check`) sobre ese directorio. No corre
   `plan` ni `apply`: eso requeriría credenciales de AWS en el repo público.
+- **Actualización (ADR 0014):** `plan` y `apply` viven en un workflow aparte,
+  `.github/workflows/deploy.yml`, y no necesitan credenciales en el repo: se autentican con
+  OIDC contra un rol por ambiente. `ci.yml` no cambió de alcance —sigue sin tocar AWS— y por
+  eso los dos workflows están separados: el CI corre en cada push de cualquier rama y el
+  despliegue solo desde `main`.

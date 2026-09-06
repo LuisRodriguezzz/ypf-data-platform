@@ -17,8 +17,8 @@ data "aws_iam_policy_document" "asume" {
 # --- rol de los jobs de Glue ------------------------------------------------
 
 resource "aws_iam_role" "glue_job" {
-  name               = "${var.project}-glue-job"
-  description        = "Rol que asumen los jobs de Glue del pipeline."
+  name               = "${var.project}-glue-job${local.sufijo}"
+  description        = "Rol que asumen los jobs de Glue del pipeline (${var.environment})."
   assume_role_policy = data.aws_iam_policy_document.asume["glue.amazonaws.com"].json
 }
 
@@ -78,10 +78,12 @@ data "aws_iam_policy_document" "glue_job" {
     resources = [aws_s3_bucket.lakehouse.arn]
   }
 
+  # Solo los parámetros de su ambiente: el rol de dev no puede leer el DSN del branch de
+  # producción de Neon aunque alguien le pase el nombre del parámetro a mano (ADR 0014).
   statement {
-    sid       = "LeerElDsnDePostgres"
+    sid       = "LeerElDsnDePostgresDeSuAmbiente"
     actions   = ["ssm:GetParameter", "ssm:GetParameters"]
-    resources = ["arn:aws:ssm:${var.region}:${data.aws_caller_identity.actual.account_id}:parameter/ypf-lakehouse/*"]
+    resources = ["arn:aws:ssm:${var.region}:${data.aws_caller_identity.actual.account_id}:parameter${local.postgres_dsn_ssm_parameter}"]
   }
 
   # El SecureString usa la clave por defecto de SSM (alias/aws/ssm), que no se puede nombrar
@@ -114,8 +116,8 @@ resource "aws_iam_role_policy" "glue_job" {
 # --- rol de la máquina de estados -------------------------------------------
 
 resource "aws_iam_role" "step_functions" {
-  name               = "${var.project}-stepfunctions"
-  description        = "Rol de las máquinas de estados de los pipelines."
+  name               = "${var.project}-stepfunctions${local.sufijo}"
+  description        = "Rol de las máquinas de estados de los pipelines (${var.environment})."
   assume_role_policy = data.aws_iam_policy_document.asume["states.amazonaws.com"].json
 }
 
@@ -150,8 +152,8 @@ resource "aws_iam_role_policy" "step_functions" {
 # --- rol del scheduler ------------------------------------------------------
 
 resource "aws_iam_role" "scheduler" {
-  name               = "${var.project}-scheduler"
-  description        = "Rol que usa EventBridge Scheduler para arrancar la máquina de estados."
+  name               = "${var.project}-scheduler${local.sufijo}"
+  description        = "Rol que usa EventBridge Scheduler para arrancar la máquina de estados (${var.environment})."
   assume_role_policy = data.aws_iam_policy_document.asume["scheduler.amazonaws.com"].json
 }
 

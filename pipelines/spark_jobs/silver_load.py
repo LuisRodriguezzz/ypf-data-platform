@@ -219,8 +219,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args(argv)
-    contract = load_contract(args.contract)
     config = load_config()
+    contract = load_contract(args.contract, suffix=config.glue_database_suffix)
 
     spark = build_spark(f"silver_load:{contract.name}", config)
     started = time.monotonic()

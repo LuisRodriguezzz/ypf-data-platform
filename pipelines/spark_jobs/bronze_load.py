@@ -130,8 +130,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args(argv)
-    rules = load_table_rules(args.dataset)
     config = load_config()
+    rules = load_table_rules(args.dataset, suffix=config.glue_database_suffix)
 
     spark = build_spark(f"bronze_load:{args.dataset}", config)
     started = time.monotonic()
