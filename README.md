@@ -78,6 +78,7 @@ como reales.
 | `pipelines/dbt/models/` | Modelo dimensional con **SCD tipo 2** sobre 21 años, tests y documentación por columna |
 | `pipelines/streaming/` | **Streaming con watermark**: exactly-once en bronze por checkpoint, agregación por ventana en silver |
 | `pipelines/ml/` | **Validación por grupo** (`GroupKFold` por yacimiento) para no filtrar información entre pozos vecinos |
+| `pipelines/ml/entrenar_eventos.py` | **Detección de eventos en telemetría**: ventanas de 180 s a 1 Hz, split por instancia y **tiempo de anticipación** al evento |
 | `pipelines/dbt/models/monitoreo/` | **Observabilidad** con lo que ya hay: frescura de fuentes y mart de salud, sin servicios nuevos |
 | `orchestration/dags/` | Airflow que **solo orquesta**: cada tarea lanza un contenedor efímero |
 | `infra/terraform/` | **IaC** completa del destino aws: 29 recursos, `terraform destroy` deja costo cero |
