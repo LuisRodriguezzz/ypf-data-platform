@@ -65,3 +65,15 @@ def test_load_config_lee_el_destino_aws_del_entorno(tmp_path, monkeypatch):
     assert config.glue_warehouse == "s3://ypf-lakehouse-123/warehouse"
     # En Glue las rutas de landing van por s3://, no por s3a://.
     assert config.s3_scheme == "s3"
+
+
+def test_load_config_sin_sufijo_de_ambiente_por_defecto(tmp_path, monkeypatch):
+    # El destino local no tiene ambientes: las bases se llaman bronze, silver y gold.
+    monkeypatch.delenv("GLUE_DATABASE_SUFFIX", raising=False)
+    assert load_config(write_env(tmp_path, ENV_SAMPLE)).glue_database_suffix == ""
+
+
+def test_load_config_lee_el_sufijo_de_ambiente(tmp_path, monkeypatch):
+    # En aws lo pone Terraform como argumento del job (ADR 0014).
+    monkeypatch.setenv("GLUE_DATABASE_SUFFIX", "_prod")
+    assert load_config(write_env(tmp_path, ENV_SAMPLE)).glue_database_suffix == "_prod"

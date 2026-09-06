@@ -61,11 +61,22 @@ jobs:
 
       # Sin credenciales: el repo es publico y no hay secretos. `-backend=false` alcanza
       # para que `validate` resuelva el provider y los tipos, y no corre plan ni apply.
+      # Tampoco hace falta `-var-file`: `validate` no evalua los valores de las variables,
+      # asi que `environment` puede seguir sin default (ADR 0014).
       - name: Init sin backend
         run: terraform init -backend=false
 
       - name: Validate
         run: terraform validate
+
+      # bootstrap/ es un directorio raiz aparte (tiene su propio provider y su propio state):
+      # el `validate` de arriba no lo mira, y sin esto un error ahi pasaria desapercibido
+      # hasta el dia que se aplique.
+      - name: Init y validate de bootstrap
+        working-directory: infra/terraform/bootstrap
+        run: |
+          terraform init -backend=false
+          terraform validate
 
   dags-importan:
     runs-on: ubuntu-latest

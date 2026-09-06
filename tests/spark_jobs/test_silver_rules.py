@@ -65,6 +65,15 @@ def test_el_contrato_de_produccion_se_lee_completo():
     assert len(contract.columns) == 38
 
 
+def test_el_contrato_lleva_el_sufijo_del_ambiente_en_las_dos_puntas():
+    # El YAML nombra `lake.silver.fractura`; en AWS la base real es `silver_dev` (ADR 0014).
+    contract = load_contract("fractura", suffix="_dev")
+    assert contract.table == "lake.silver_dev.fractura"
+    assert contract.source == "lake.bronze_dev.fractura"
+    # Las tablas derivadas salen de `contract.table`, así que heredan el sufijo solas.
+    assert dq_runs_table(contract) == "lake.silver_dev.dq_runs"
+
+
 def test_los_tipos_declarados_son_los_esperados():
     columnas = {column.name: column.type for column in load_contract("produccion_pozo").columns}
     assert columnas["idpozo"] == "bigint"

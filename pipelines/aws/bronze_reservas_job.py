@@ -20,6 +20,7 @@ from awsglue.utils import getResolvedOptions
 ENV_ARGS = (
     "LAKEHOUSE_TARGET",
     "GLUE_WAREHOUSE",
+    "GLUE_DATABASE_SUFFIX",
     "S3_LANDING_BUCKET",
     "S3_REGION",
 )

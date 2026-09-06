@@ -229,7 +229,9 @@ def to_arrow(rows: list[dict[str, object]], schema: pa.Schema) -> pa.Table:
 
 def ensure_table(catalog: Catalog, identifier: str) -> Table:
     """Crea la tabla particionada por recurso la primera vez; después la abre."""
-    catalog.create_namespace_if_not_exists(NAMESPACE)
+    # El namespace sale del identificador y no de la constante: ya viene con el sufijo del
+    # ambiente pegado.
+    catalog.create_namespace_if_not_exists(identifier.rsplit(".", 1)[0])
     schema = bronze_schema()
     return catalog.create_table_if_not_exists(
         identifier, schema=schema, partition_spec=partition_spec(schema)
@@ -289,7 +291,10 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args(argv)
     config = load_config()
-    identifier = f"{NAMESPACE}.{TABLE}"
+    # Mismo sufijo de ambiente que aplican los jobs de Spark (`with_suffix`): en AWS la base
+    # es `bronze_dev` o `bronze_prod`, en local es `bronze` a secas (ADR 0014).
+    namespace = f"{NAMESPACE}{config.glue_database_suffix}"
+    identifier = f"{namespace}.{TABLE}"
 
     catalog = open_catalog(config)
     landed = read_manifest(Manifest(config.postgres_dsn))

@@ -17,6 +17,7 @@ from pipelines.spark_jobs.bronze_rules import (
     resources_by_table,
     table_for_resource,
     unmapped_resources,
+    with_suffix,
 )
 
 PRODUCCION_RULES = load_table_rules("produccion_pozo")
@@ -65,6 +66,23 @@ def test_clean_column_name_deja_intacto_un_nombre_normal():
 
 def test_namespace_of():
     assert namespace_of("lake.bronze.produccion_pozo") == "lake.bronze"
+
+
+# --- sufijo de ambiente (ADR 0014) -----------------------------------------------------
+
+
+def test_with_suffix_solo_toca_el_namespace():
+    assert with_suffix("lake.bronze.fractura", "_dev") == "lake.bronze_dev.fractura"
+
+
+def test_with_suffix_vacio_deja_la_tabla_igual():
+    # Es el destino local: un solo catálogo, sin ambientes que separar.
+    assert with_suffix("lake.bronze.fractura", "") == "lake.bronze.fractura"
+
+
+def test_load_table_rules_aplica_el_sufijo_a_todas_las_tablas():
+    reglas = load_table_rules("produccion_pozo", suffix="_prod")
+    assert all(regla.table.startswith("lake.bronze_prod.") for regla in reglas)
 
 
 def test_pending_files_incluye_recursos_nuevos():

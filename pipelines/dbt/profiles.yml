@@ -25,7 +25,11 @@ ypf_gold:
       region_name: "{{ env_var('AWS_REGION') }}"
       work_group: "{{ env_var('ATHENA_WORKGROUP') }}"
       database: "{{ env_var('ATHENA_DATABASE') }}"
-      schema: gold
+      # La base de Glue lleva el sufijo del ambiente (`gold_dev`, `gold_prod`) porque dev y
+      # prod comparten cuenta y el catálogo no admite dos bases `gold` (ADR 0014). El valor
+      # lo pone Terraform como argumento del job y lo exporta `gold_dbt_job.py`; el default
+      # vacío es para el destino local, donde no hay ambientes.
+      schema: "gold{{ env_var('GLUE_DATABASE_SUFFIX', '') }}"
       # Resultados de las consultas (descartables) y datos de las tablas (no). Van a prefijos
       # distintos a propósito: athena-results/ se vacía a los 7 días por regla de ciclo de
       # vida del bucket y ahí adentro gold duraría una semana.

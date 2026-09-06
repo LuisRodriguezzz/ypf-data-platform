@@ -14,10 +14,14 @@ echo "== uv build =="
 uv build --wheel --project "$repo"
 wheel="$(ls -t "$repo"/dist/*.whl | head -1)"
 
+# Los outputs salen del workspace seleccionado: se publica en el ambiente en el que uno
+# este parado. Se imprime antes de subir nada, que es barato y evita subir a prod creyendo
+# que se sube a dev (ADR 0014).
+ambiente="$(terraform -chdir="$terraform_dir" output -raw environment)"
 bucket="$(terraform -chdir="$terraform_dir" output -raw lakehouse_bucket)"
 destino="s3://$bucket/artifacts"
 
-echo "== subiendo a $destino =="
+echo "== ambiente $ambiente: subiendo a $destino =="
 "$aws_cli" s3 cp "$wheel" "$destino/$(basename "$wheel")"
 # Todos los *_job.py de golpe: un job nuevo no necesita tocar este script.
 for script in "$repo"/pipelines/aws/*_job.py; do

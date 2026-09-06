@@ -53,19 +53,38 @@ def namespace_of(table: str) -> str:
     return table.rsplit(".", 1)[0]
 
 
+def with_suffix(table: str, suffix: str) -> str:
+    """`lake.bronze.fractura` + `_dev` -> `lake.bronze_dev.fractura`.
+
+    Los YAML (contratos y `bronze_tables.yaml`) nombran la tabla sin ambiente: en AWS las dos
+    instalaciones comparten cuenta y el Glue Data Catalog no admite dos bases `bronze`, así
+    que el sufijo se pega acá y no en cada archivo (ADR 0014). Con sufijo vacío —el destino
+    local— el nombre no cambia.
+    """
+    if not suffix:
+        return table
+    catalog, namespace, name = table.split(".")
+    return f"{catalog}.{namespace}{suffix}.{name}"
+
+
 def dataset_names(path: Path | str | None = None) -> list[str]:
     """Datasets declarados en bronze_tables.yaml, para las opciones de la CLI."""
     raw = load_yaml_file(path or DEFAULT_TABLES_PATH)
     return sorted(raw.get("datasets") or {})
 
 
-def load_table_rules(dataset: str, path: Path | str | None = None) -> list[TableRule]:
-    """Reglas de un dataset, en orden de evaluación."""
+def load_table_rules(
+    dataset: str, path: Path | str | None = None, suffix: str = ""
+) -> list[TableRule]:
+    """Reglas de un dataset, en orden de evaluación, con el sufijo del ambiente aplicado."""
     raw = load_yaml_file(path or DEFAULT_TABLES_PATH)
     entries = (raw.get("datasets") or {}).get(dataset)
     if not entries:
         raise KeyError(f"dataset {dataset!r} no tiene tablas declaradas en bronze_tables.yaml")
-    return [TableRule(match=entry["match"], table=entry["table"]) for entry in entries]
+    return [
+        TableRule(match=entry["match"], table=with_suffix(entry["table"], suffix))
+        for entry in entries
+    ]
 
 
 def table_for_resource(rules: list[TableRule], resource_name: str) -> str | None:

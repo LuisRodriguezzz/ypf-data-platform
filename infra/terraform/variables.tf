@@ -1,3 +1,18 @@
+variable "environment" {
+  description = <<-EOT
+    Ambiente que se despliega: `dev` o `prod`. Sufija el nombre de todos los recursos, así
+    los dos conviven en la misma cuenta sin pisarse (ADR 0014). No tiene default a
+    propósito: se pasa siempre con `-var-file=envs/dev.tfvars` o `envs/prod.tfvars`, para
+    que nadie aplique un ambiente por descuido.
+  EOT
+  type        = string
+
+  validation {
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "environment tiene que ser dev o prod: son los dos ambientes del ADR 0014."
+  }
+}
+
 variable "project" {
   description = "Nombre del proyecto; se aplica como tag a todos los recursos."
   type        = string
@@ -10,26 +25,29 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "bucket_suffix" {
-  description = "Sufijo opcional del bucket, por si hace falta un segundo entorno en la misma cuenta."
-  type        = string
-  default     = ""
-}
-
 variable "wheel_name" {
   description = "Nombre del wheel que `scripts/aws_deploy.ps1` sube a artifacts/ (viene de la versión en pyproject.toml)."
   type        = string
   default     = "ypf_data_platform-0.1.0-py3-none-any.whl"
 }
 
-variable "postgres_dsn_ssm_parameter" {
-  description = "Parámetro SecureString con la cadena de conexión a Neon. Se crea a mano, fuera de Terraform: es un secreto."
-  type        = string
-  default     = "/ypf-lakehouse/postgres_dsn"
+variable "number_of_workers" {
+  description = <<-EOT
+    Workers G.1X de los jobs de Spark (bronze, silver, gold). Dos en dev, que es lo mínimo
+    de Glue y alcanza para probar que el pipeline corre; cuatro en prod, donde el CSV de
+    producción son 18 millones de filas.
+  EOT
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.number_of_workers >= 2
+    error_message = "Glue exige al menos 2 workers en un job de tipo glueetl."
+  }
 }
 
 variable "enable_schedule" {
-  description = "Deja el schedule mensual habilitado. Falso por defecto: nada corriendo si nadie lo pide."
+  description = "Deja los schedules mensuales habilitados. Falso por defecto: nada corriendo si nadie lo pide."
   type        = bool
   default     = false
 }
