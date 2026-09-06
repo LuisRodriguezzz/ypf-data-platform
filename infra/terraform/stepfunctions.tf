@@ -1,6 +1,6 @@
-# Una máquina de estados por DAG de Airflow: los mismos tres pasos, en el mismo orden, y si
-# uno falla no arranca el siguiente. Los tres jobs de Glue son genéricos y se reutilizan; lo
-# único que cambia entre pipelines es el dataset, el contrato y el cron.
+# Una máquina de estados por DAG de Airflow: los mismos pasos, en el mismo orden, y si uno
+# falla no arranca el siguiente. Los jobs de Glue son genéricos y se reutilizan; lo único que
+# cambia entre pipelines es el dataset, el contrato, qué job hace bronze y el cron.
 #
 # `startJobRun.sync` espera a que el job termine y falla si el job falla.
 #
@@ -12,16 +12,29 @@
 locals {
   pipelines = {
     produccion_pozo_mensual = {
-      dataset  = "produccion_pozo"
-      contract = "produccion_pozo"
+      dataset    = "produccion_pozo"
+      contract   = "produccion_pozo"
+      bronze_job = aws_glue_job.bronze_load.name
       # Mensual, el día 1 a las 6, igual que el DAG.
       cron = "cron(0 6 1 * ? *)"
     }
     fractura_diaria = {
-      dataset  = "fractura"
-      contract = "fractura"
+      dataset    = "fractura"
+      contract   = "fractura"
+      bronze_job = aws_glue_job.bronze_load.name
       # Diario a las 7: el portal republica el CSV de fractura todos los días.
       cron = "cron(0 7 * * ? *)"
+    }
+    reservas_mensual = {
+      dataset  = "reservas"
+      contract = "reservas"
+      # El único pipeline cuyo bronze no es Spark: el ZIP anual es un cuadro de Excel y lo
+      # parsea un Python shell (glue.tf). El `--dataset` de abajo le llega igual y lo ignora,
+      # porque este job carga una sola tabla.
+      bronze_job = aws_glue_job.bronze_reservas.name
+      # Mensual el día 1 a las 6, como el DAG: la Secretaría publica el ZIP una vez al año,
+      # pero mirarlo todos los meses no cuesta nada (el hash decide si hay algo que cargar).
+      cron = "cron(0 6 1 * ? *)"
     }
   }
 
@@ -40,40 +53,66 @@ locals {
     paso => "{% $merge([${jsonencode(fijos)}, $exists($states.context.Execution.Input.${paso}) ? $states.context.Execution.Input.${paso} : {}]) %}"
   } }
 
-  definiciones = { for nombre, pipeline in local.pipelines : nombre => {
-    Comment       = "${pipeline.dataset}: landing -> bronze -> silver"
-    QueryLanguage = "JSONata"
-    StartAt       = "ingesta"
-    States = {
-      ingesta = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::glue:startJobRun.sync"
-        Arguments = {
-          JobName   = aws_glue_job.ingest_landing.name
-          Arguments = local.argumentos[nombre]["ingesta"]
+  # Gold no es un pipeline de fuente: no ingiere ni tipa nada, corre un solo job que arma los
+  # ocho modelos con dbt. Entra igual al mismo `for_each` para no repetir el recurso de la
+  # máquina de estados ni el del schedule.
+  definiciones = merge(
+    { for nombre, pipeline in local.pipelines : nombre => {
+      Comment       = "${pipeline.dataset}: landing -> bronze -> silver"
+      QueryLanguage = "JSONata"
+      StartAt       = "ingesta"
+      States = {
+        ingesta = {
+          Type     = "Task"
+          Resource = "arn:aws:states:::glue:startJobRun.sync"
+          Arguments = {
+            JobName   = aws_glue_job.ingest_landing.name
+            Arguments = local.argumentos[nombre]["ingesta"]
+          }
+          Next = "bronze"
         }
-        Next = "bronze"
-      }
-      bronze = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::glue:startJobRun.sync"
-        Arguments = {
-          JobName   = aws_glue_job.bronze_load.name
-          Arguments = local.argumentos[nombre]["bronze"]
+        bronze = {
+          Type     = "Task"
+          Resource = "arn:aws:states:::glue:startJobRun.sync"
+          Arguments = {
+            JobName   = pipeline.bronze_job
+            Arguments = local.argumentos[nombre]["bronze"]
+          }
+          Next = "silver"
         }
-        Next = "silver"
-      }
-      silver = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::glue:startJobRun.sync"
-        Arguments = {
-          JobName   = aws_glue_job.silver_load.name
-          Arguments = local.argumentos[nombre]["silver"]
+        silver = {
+          Type     = "Task"
+          Resource = "arn:aws:states:::glue:startJobRun.sync"
+          Arguments = {
+            JobName   = aws_glue_job.silver_load.name
+            Arguments = local.argumentos[nombre]["silver"]
+          }
+          End = true
         }
-        End = true
       }
-    }
-  } }
+    } },
+    {
+      gold_mensual = {
+        Comment       = "gold: dbt build sobre silver, con Athena de motor"
+        QueryLanguage = "JSONata"
+        StartAt       = "gold"
+        States = {
+          gold = {
+            Type      = "Task"
+            Resource  = "arn:aws:states:::glue:startJobRun.sync"
+            Arguments = { JobName = aws_glue_job.gold_dbt.name }
+            End       = true
+          }
+        }
+      }
+    },
+  )
+
+  # El día 1 a las 6, igual que el DAG `gold_mensual`; los de las fuentes corren antes.
+  crons = merge(
+    { for nombre, pipeline in local.pipelines : nombre => pipeline.cron },
+    { gold_mensual = "cron(0 6 1 * ? *)" },
+  )
 }
 
 resource "aws_sfn_state_machine" "pipeline" {
@@ -87,11 +126,11 @@ resource "aws_sfn_state_machine" "pipeline" {
 # Los schedules nacen deshabilitados: el entorno no tiene que quedar corriendo solo. Se
 # habilitan con `terraform apply -var enable_schedule=true`.
 resource "aws_scheduler_schedule" "pipeline" {
-  for_each = local.pipelines
+  for_each = local.crons
 
   name                         = replace(each.key, "_", "-")
   state                        = var.enable_schedule ? "ENABLED" : "DISABLED"
-  schedule_expression          = each.value.cron
+  schedule_expression          = each.value
   schedule_expression_timezone = "America/Argentina/Buenos_Aires"
 
   flexible_time_window {

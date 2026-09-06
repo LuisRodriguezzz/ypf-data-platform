@@ -19,7 +19,7 @@ with observaciones as (
 )
 
 select
-    md5(idareayacimiento) as yacimiento_key,
+    {{ md5('idareayacimiento') }} as yacimiento_key,
     idareayacimiento,
     max_by(areayacimiento, periodo) as areayacimiento,
     max_by(cuenca, periodo) as cuenca,

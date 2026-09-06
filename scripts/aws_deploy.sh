@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sube los artefactos que ejecutan los jobs de Glue: el wheel del proyecto y los tres
-# wrappers de pipelines/aws/. La infraestructura la crea Terraform; esto solo publica codigo.
+# Sube los artefactos que ejecutan los jobs de Glue: el wheel del proyecto y los wrappers
+# de pipelines/aws/. La infraestructura la crea Terraform; esto solo publica codigo.
 # Uso: scripts/aws_deploy.sh
 set -euo pipefail
 
@@ -19,11 +19,12 @@ destino="s3://$bucket/artifacts"
 
 echo "== subiendo a $destino =="
 "$aws_cli" s3 cp "$wheel" "$destino/$(basename "$wheel")"
-for script in ingest_job.py bronze_job.py silver_job.py; do
-  "$aws_cli" s3 cp "$repo/pipelines/aws/$script" "$destino/$script"
+# Todos los *_job.py de golpe: un job nuevo no necesita tocar este script.
+for script in "$repo"/pipelines/aws/*_job.py; do
+  "$aws_cli" s3 cp "$script" "$destino/$(basename "$script")"
 done
 
 echo
 echo "wheel:   $destino/$(basename "$wheel")"
-echo "scripts: $destino/{ingest_job.py,bronze_job.py,silver_job.py}"
+echo "scripts: $destino/$(cd "$repo/pipelines/aws" && echo *_job.py | tr ' ' ',')"
 echo "Si el nombre del wheel cambio, actualiza la variable wheel_name de Terraform."

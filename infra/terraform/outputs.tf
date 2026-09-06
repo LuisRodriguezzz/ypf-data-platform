@@ -4,11 +4,13 @@ output "lakehouse_bucket" {
 }
 
 output "glue_jobs" {
-  description = "Nombres de los tres jobs de Glue, en el orden en que corren."
+  description = "Nombres de los jobs de Glue, en el orden en que corren."
   value = [
     aws_glue_job.ingest_landing.name,
     aws_glue_job.bronze_load.name,
+    aws_glue_job.bronze_reservas.name,
     aws_glue_job.silver_load.name,
+    aws_glue_job.gold_dbt.name,
   ]
 }
 

@@ -1,4 +1,6 @@
-{{ config(partition_by=['anio']) }}
+{# Dos nombres para lo mismo: `partition_by` es de dbt-spark y `partitioned_by` de
+   dbt-athena. Cada adaptador ignora el del otro. #}
+{{ config(partition_by=['anio'], partitioned_by=['anio']) }}
 
 -- Hecho central del modelo: una fila por pozo y mes declarado, con las medidas de producción e
 -- inyección y las claves hacia las cuatro dimensiones. Particionada por `anio` igual que la
@@ -14,7 +16,7 @@ with produccion as (
         idpozo,
         anio,
         mes,
-        make_date(anio, mes, 1) as mes_declarado,
+        {{ make_date('anio', 'mes', 1) }} as mes_declarado,
         empresa,
         idareayacimiento,
         prod_pet,
@@ -44,7 +46,7 @@ con_pozo as (
 padron as (
     select
         idpozo,
-        make_date(anio, mes, 1) as primera_produccion
+        {{ make_date('anio', 'mes', 1) }} as primera_produccion
     from {{ source('silver', 'pozo_primera_produccion') }}
 )
 
@@ -52,7 +54,7 @@ select
     c.pozo_key,
     c.anio * 100 + c.mes as fecha_key,
     {{ clave_empresa('c.empresa') }} as empresa_key,
-    md5(c.idareayacimiento) as yacimiento_key,
+    {{ md5('c.idareayacimiento') }} as yacimiento_key,
     c.idpozo,
     c.anio,
     c.mes,
@@ -66,6 +68,6 @@ select
     c.tef,
     -- Edad del pozo en meses: 0 es el mes de su primera producción. Nula si el pozo no figura
     -- en el padrón, que no cubre a todos los que declaran.
-    int(months_between(c.mes_declarado, p.primera_produccion)) as meses_desde_primera_produccion
+    {{ meses_entre('p.primera_produccion', 'c.mes_declarado') }} as meses_desde_primera_produccion
 from con_pozo c
 left join padron p on c.idpozo = p.idpozo

@@ -12,10 +12,13 @@ if (-not (Test-Path $aws)) { $aws = "aws" }
 $jobs = @(
     @{ name = "ingest_landing"; group = "/aws-glue/python-jobs/error" },
     @{ name = "bronze_load"; group = "/aws-glue/jobs/output" },
-    @{ name = "silver_load"; group = "/aws-glue/jobs/output" }
+    @{ name = "bronze_reservas"; group = "/aws-glue/python-jobs/error" },
+    @{ name = "silver_load"; group = "/aws-glue/jobs/output" },
+    @{ name = "gold_dbt"; group = "/aws-glue/jobs/output" }
 )
 # Palabras que identifican las líneas de nuestro programa (no las de Spark ni de pip).
-$filtro = '?pendientes ?resumen ?unchanged ?cargado ?descargando ?"ok=" ?rechazadas ?ERROR'
+# `OK=` y `PASS=` son el resumen final de dbt; `Completed` marca cada modelo terminado.
+$filtro = '?pendientes ?resumen ?unchanged ?cargado ?descargando ?"ok=" ?rechazadas ?ERROR ?"PASS=" ?Completed'
 
 foreach ($j in $jobs) {
     $run = (& $aws glue get-job-runs --job-name $j.name --max-results 1 `

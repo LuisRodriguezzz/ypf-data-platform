@@ -4,9 +4,11 @@ El resto de bronze usa Spark porque los CSV del portal pesan cientos de MB. Acá
 archivo son 400 KB y el trabajo real es desarmar un cuadro de Excel con encabezados
 fusionados, algo que Spark no sabe leer: levantar una JVM para eso sería pagar 3 GB de
 RAM y un contenedor por 40.000 filas. Se escribe con pyiceberg contra el mismo catálogo
-REST, así la tabla que queda es indistinguible de las que escribe Spark.
+que usa Spark —REST en local, Glue en aws—, así la tabla que queda es indistinguible de
+las que escribe Spark.
 
 Uso: `uv run python -m pipelines.reservas.bronze_load [--resource-id ...]`
+En aws corre como job de Glue Python shell (`pipelines/aws/bronze_reservas_job.py`).
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from datetime import date, datetime, timezone
 import boto3
 import pyarrow as pa
 from botocore.config import Config
-from pyiceberg.catalog.rest import RestCatalog
+from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.expressions import EqualTo
 from pyiceberg.partitioning import PartitionField, PartitionSpec
 from pyiceberg.schema import Schema
@@ -37,6 +39,7 @@ from pipelines.spark_jobs.config import LakehouseConfig, load_config
 logger = logging.getLogger("reservas.bronze_load")
 
 DATASET = "reservas"
+CATALOG = "lake"
 NAMESPACE = "bronze"
 TABLE = "reservas"
 
@@ -93,11 +96,12 @@ def partition_spec(schema: Schema) -> PartitionSpec:
     )
 
 
-def open_catalog(config: LakehouseConfig) -> RestCatalog:
-    """Catálogo REST con las credenciales de MinIO (las mismas que usa `check_lake.py`)."""
-    return RestCatalog(
-        "lake",
+def _catalogo_rest(config: LakehouseConfig) -> Catalog:
+    """Destino local: catálogo Iceberg REST y objetos en MinIO (endpoint y claves propias)."""
+    return load_catalog(
+        CATALOG,
         **{
+            "type": "rest",
             "uri": config.iceberg_catalog_uri,
             "warehouse": config.iceberg_warehouse,
             "s3.endpoint": config.s3_endpoint_url,
@@ -108,18 +112,48 @@ def open_catalog(config: LakehouseConfig) -> RestCatalog:
     )
 
 
+def _catalogo_glue(config: LakehouseConfig) -> Catalog:
+    """Destino aws: Glue Data Catalog y objetos en S3 con las credenciales del rol del job.
+
+    Sin endpoint ni claves: boto3 y el FileIO de pyarrow las resuelven solos dentro de AWS.
+    Es el mismo par de funciones que `spark_jobs/session.py` para la SparkSession.
+    """
+    return load_catalog(
+        CATALOG,
+        **{
+            "type": "glue",
+            "warehouse": config.glue_warehouse,
+            "glue.region": config.s3_region,
+            "s3.region": config.s3_region,
+        },
+    )
+
+
+def open_catalog(config: LakehouseConfig) -> Catalog:
+    """El catálogo del destino que diga `LAKEHOUSE_TARGET`."""
+    return _catalogo_glue(config) if config.is_aws else _catalogo_rest(config)
+
+
 def open_landing(config: LakehouseConfig) -> object:
-    """Cliente S3 apuntado a landing; vacío en AWS significa credenciales del rol."""
+    """Cliente S3 apuntado a landing.
+
+    Se decide por destino y no por si hay endpoint: `load_config` completa `S3_ENDPOINT_URL`
+    con el default de MinIO cuando la variable viene vacía, así que en AWS mirar el endpoint
+    apuntaría a localhost.
+    """
+    retries = {"max_attempts": 5, "mode": "standard"}
+    if config.is_aws:
+        return boto3.client("s3", region_name=config.s3_region, config=Config(retries=retries))
     return boto3.client(
         "s3",
-        endpoint_url=config.s3_endpoint_url or None,
-        aws_access_key_id=config.s3_access_key_id or None,
-        aws_secret_access_key=config.s3_secret_access_key or None,
+        endpoint_url=config.s3_endpoint_url,
+        aws_access_key_id=config.s3_access_key_id,
+        aws_secret_access_key=config.s3_secret_access_key,
         region_name=config.s3_region,
         config=Config(
             signature_version="s3v4",
-            s3={"addressing_style": "path" if config.s3_endpoint_url else "auto"},
-            retries={"max_attempts": 5, "mode": "standard"},
+            s3={"addressing_style": "path"},
+            retries=retries,
         ),
     )
 
@@ -152,7 +186,7 @@ def read_manifest(manifest: Manifest, dataset: str = DATASET) -> list[LandedZip]
     return sorted(ultimos.values(), key=lambda zip_: zip_.resource_name)
 
 
-def loaded_sha256(catalog: RestCatalog, identifier: str) -> dict[str, str]:
+def loaded_sha256(catalog: Catalog, identifier: str) -> dict[str, str]:
     """sha256 ya cargado por recurso. Vacío si la tabla todavía no existe."""
     if not catalog.table_exists(identifier):
         return {}
@@ -163,7 +197,6 @@ def loaded_sha256(catalog: RestCatalog, identifier: str) -> dict[str, str]:
         zip(
             por_recurso["_resource_id"].to_pylist(),
             por_recurso["_source_sha256_max"].to_pylist(),
-            strict=True,
         )
     )
 
@@ -194,7 +227,7 @@ def to_arrow(rows: list[dict[str, object]], schema: pa.Schema) -> pa.Table:
     return pa.Table.from_pydict(columnas, schema=schema)
 
 
-def ensure_table(catalog: RestCatalog, identifier: str) -> Table:
+def ensure_table(catalog: Catalog, identifier: str) -> Table:
     """Crea la tabla particionada por recurso la primera vez; después la abre."""
     catalog.create_namespace_if_not_exists(NAMESPACE)
     schema = bronze_schema()

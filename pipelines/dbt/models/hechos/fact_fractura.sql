@@ -24,7 +24,7 @@ select
     -- queda nula en vez de negativa, que sería un número inventado.
     case
         when f.fecha_fin_fractura >= f.fecha_inicio_fractura
-            then datediff(f.fecha_fin_fractura, f.fecha_inicio_fractura)
+            then {{ dias_entre('f.fecha_inicio_fractura', 'f.fecha_fin_fractura') }}
     end as duracion_dias,
     f.longitud_rama_horizontal_m,
     f.cantidad_fracturas,

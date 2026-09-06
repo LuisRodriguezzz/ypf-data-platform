@@ -8,10 +8,13 @@
 -- construye hacia adelante; si se cortara en el mes en curso, esas tres filas de hechos
 -- quedarían apuntando a un mes que no existe.
 
+-- El año de corte se resuelve al compilar y no con `current_date()`: Trino lo escribe sin
+-- paréntesis y no vale una macro más por un solo uso. La tabla se reconstruye entera cada
+-- corrida, así que compilar en enero o en diciembre da lo mismo.
+{% set ultimo_mes = modules.datetime.date(run_started_at.year, 12, 1) %}
+
 with meses as (
-    select explode(
-        sequence(date '2006-01-01', make_date(year(current_date()), 12, 1), interval 1 month)
-    ) as primer_dia
+    {{ serie_de_meses("date '2006-01-01'", "date '" ~ ultimo_mes ~ "'", 'primer_dia') }}
 )
 
 select
@@ -19,7 +22,7 @@ select
     year(primer_dia) as anio,
     month(primer_dia) as mes,
     quarter(primer_dia) as trimestre,
-    date_format(primer_dia, 'yyyy-MM') as anio_mes,
+    {{ date_format('primer_dia', 'yyyy-MM') }} as anio_mes,
     primer_dia,
-    last_day(primer_dia) as ultimo_dia
+    {{ fin_de_mes('primer_dia') }} as ultimo_dia
 from meses

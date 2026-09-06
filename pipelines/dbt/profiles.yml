@@ -1,6 +1,6 @@
 # Perfil de dbt versionado con el repo: no tiene secretos porque el destino local no los
 # necesita (la sesión de Spark ya viene armada por run_dbt.py con las credenciales del
-# entorno) y el destino aws usa el rol de la cuenta.
+# entorno) y el destino aws usa el rol del job de Glue.
 
 ypf_gold:
   target: local
@@ -16,15 +16,19 @@ ypf_gold:
       schema: gold
       threads: 1 # un solo driver de Spark de 4 GB: los modelos van de a uno
 
-    # Destino aws (ADR 0008): esbozado, todavía sin implementar. Athena lee las mismas tablas
-    # Iceberg desde el Glue Data Catalog, así que los modelos no cambian; lo que falta es el
-    # workgroup, el bucket de resultados y reemplazar md5() por lower(to_hex(md5(to_utf8(x))))
-    # en macros/claves.sql, que es la única función que Athena escribe distinto.
-    # aws:
-    #   type: athena
-    #   s3_staging_dir: s3://<bucket>/athena-results/
-    #   region_name: us-east-1
-    #   database: awsdatacatalog
-    #   schema: gold
-    #   work_group: primary
-    #   threads: 4
+    # Destino aws (ADR 0010): dbt-athena manda SQL a Athena, que lee y escribe las mismas
+    # tablas Iceberg del Glue Data Catalog. Todo lo que depende de la cuenta llega por
+    # entorno, que es lo que exporta pipelines/aws/gold_dbt_job.py desde los argumentos del
+    # job; nada de esto es secreto, pero tampoco tiene por qué estar escrito en el repo.
+    aws:
+      type: athena
+      region_name: "{{ env_var('AWS_REGION') }}"
+      work_group: "{{ env_var('ATHENA_WORKGROUP') }}"
+      database: "{{ env_var('ATHENA_DATABASE') }}"
+      schema: gold
+      # Resultados de las consultas (descartables) y datos de las tablas (no). Van a prefijos
+      # distintos a propósito: athena-results/ se vacía a los 7 días por regla de ciclo de
+      # vida del bucket y ahí adentro gold duraría una semana.
+      s3_staging_dir: "{{ env_var('S3_STAGING_DIR') }}"
+      s3_data_dir: "{{ env_var('S3_DATA_DIR') }}"
+      threads: 4 # Athena es el que ejecuta: acá no hay JVM que se pelee la RAM

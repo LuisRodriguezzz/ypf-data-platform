@@ -60,7 +60,6 @@ destino `aws` usaría el rol de la cuenta. El target `aws` queda esbozado y come
   y queda para lo que sigue siendo bueno: consultas exploratorias desde el host y tests que no
   quieren levantar una JVM. En AWS no cambia nada: el destino sigue siendo Athena, que lee las
   mismas tablas Iceberg desde el Glue Data Catalog.
-- Lo que queda pendiente para el destino `aws` es el adaptador (`dbt-athena` o `dbt-glue`) y una
-  sola diferencia de dialecto: Athena escribe el hash como `lower(to_hex(md5(to_utf8(x))))`.
-  Vive en `pipelines/dbt/macros/claves.sql`, que es el único lugar del proyecto donde hay SQL
-  específico de un motor.
+- El destino `aws` quedó resuelto aparte, en el **ADR 0010**: `dbt-athena` dentro de un job de
+  Glue. El SQL específico de un motor sigue viviendo en un solo lugar, que pasó a ser
+  `pipelines/dbt/macros/dialecto.sql`.

@@ -8,10 +8,14 @@
 -- La receta es la clásica: `lag` para ver si algo cambió respecto del mes anterior y una suma
 -- acumulada de esos cambios para numerar los tramos.
 
+-- La clave del tramo se arma acá arriba y no en el SELECT: son tres macros anidadas y de
+-- corrido no se leería qué compone la clave.
+{% set clave_del_tramo = "concat_ws('|', " ~ texto('v.idpozo') ~ ', ' ~ texto('v.vigente_desde') ~ ')' %}
+
 with historia as (
     select
         idpozo,
-        make_date(anio, mes, 1) as mes_declarado,
+        {{ make_date('anio', 'mes', 1) }} as mes_declarado,
         empresa,
         tipoestado,
         tipopozo,
@@ -105,12 +109,12 @@ vigencias as (
 padron as (
     select
         idpozo,
-        make_date(anio, mes, 1) as primera_produccion
+        {{ make_date('anio', 'mes', 1) }} as primera_produccion
     from {{ source('silver', 'pozo_primera_produccion') }}
 )
 
 select
-    md5(concat_ws('|', cast(v.idpozo as string), cast(v.vigente_desde as string))) as pozo_key,
+    {{ md5(clave_del_tramo) }} as pozo_key,
     v.idpozo,
     v.sigla,
     v.empresa,
@@ -122,12 +126,12 @@ select
     v.sub_tipo_recurso,
     v.formacion,
     v.idareayacimiento,
-    md5(v.idareayacimiento) as yacimiento_key,
+    {{ md5('v.idareayacimiento') }} as yacimiento_key,
     v.profundidad,
     p.primera_produccion,
     v.vigente_desde,
     -- El tramo vigente no tiene fin: se cierra el día que el pozo declare algo distinto.
-    case when v.es_vigente then null else last_day(v.ultimo_mes) end as vigente_hasta,
+    case when v.es_vigente then null else {{ fin_de_mes('v.ultimo_mes') }} end as vigente_hasta,
     v.es_vigente
 from vigencias v
 left join padron p on v.idpozo = p.idpozo

@@ -1,5 +1,5 @@
-# Sube los artefactos que ejecutan los jobs de Glue: el wheel del proyecto y los tres
-# wrappers de pipelines/aws/. La infraestructura la crea Terraform; esto solo publica codigo.
+# Sube los artefactos que ejecutan los jobs de Glue: el wheel del proyecto y los wrappers
+# de pipelines/aws/. La infraestructura la crea Terraform; esto solo publica codigo.
 # Uso: scripts\aws_deploy.ps1
 
 # `Continue` y no `Stop`: uv y aws escriben progreso en stderr y con `Stop` PowerShell lo
@@ -34,12 +34,14 @@ $destino = "s3://$bucket/artifacts"
 Write-Host "== subiendo a $destino =="
 & $aws s3 cp $wheel.FullName "$destino/$($wheel.Name)"
 Invoke-O-Fallar "aws s3 cp del wheel"
-foreach ($script in "ingest_job.py", "bronze_job.py", "silver_job.py") {
-  & $aws s3 cp (Join-Path $repo "pipelines\aws\$script") "$destino/$script"
-  Invoke-O-Fallar "aws s3 cp de $script"
+# Todos los *_job.py de golpe: un job nuevo no necesita tocar este script.
+$wrappers = Get-ChildItem (Join-Path $repo "pipelines\aws\*_job.py")
+foreach ($script in $wrappers) {
+  & $aws s3 cp $script.FullName "$destino/$($script.Name)"
+  Invoke-O-Fallar "aws s3 cp de $($script.Name)"
 }
 
 Write-Host ""
 Write-Host "wheel:   $destino/$($wheel.Name)"
-Write-Host "scripts: $destino/{ingest_job.py,bronze_job.py,silver_job.py}"
+Write-Host "scripts: $destino/{$($wrappers.Name -join ',')}"
 Write-Host "Si el nombre del wheel cambio, actualiza la variable wheel_name de Terraform."

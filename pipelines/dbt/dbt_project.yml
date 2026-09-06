@@ -9,8 +9,12 @@ test-paths: ["tests"]
 
 models:
   gold:
-    # Todo gold son tablas Iceberg en el catálogo `lake`, igual que bronze y silver.
+    # Todo gold son tablas Iceberg, igual que bronze y silver. Cada adaptador nombra la
+    # misma decisión a su manera y se ignoran las claves del otro: `file_format` es de
+    # dbt-spark (destino local) y `table_type` + `format` de dbt-athena (destino aws).
     +file_format: iceberg
+    +table_type: iceberg
+    +format: parquet
     dimensiones:
       +materialized: table
     hechos:
