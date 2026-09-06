@@ -40,15 +40,14 @@ Athena escriben distinto viven en una macro de dbt (ADR 0010).
 
 | Fuente | Tabla silver | Filas | Cadencia | Ficha |
 | --- | --- | ---: | --- | --- |
-| Producción de petróleo y gas por pozo (DDJJ) | `silver.produccion_pozo` | 18.218.514 | mensual | [semana 0](docs/semana-0-derisking.md) |
-| Padrón de pozos con primera producción | `silver.pozo_primera_produccion` | 86.197 | mensual | [semana 0](docs/semana-0-derisking.md) |
+| Producción de petróleo y gas por pozo (DDJJ) | `silver.produccion_pozo` | 18.218.514 | mensual | [produccion_pozo.md](docs/fuentes/produccion_pozo.md) |
+| Padrón de pozos con primera producción | `silver.pozo_primera_produccion` | 86.197 | mensual | [pozo_primera_produccion.md](docs/fuentes/pozo_primera_produccion.md) |
 | Datos de fractura (Adjunto IV) | `silver.fractura` | 4.878 | diaria | [fractura.md](docs/fuentes/fractura.md) |
 | Reservas y recursos al 31/12 | `silver.reservas` | 198.734 | anual (2020-2024) | [reservas.md](docs/fuentes/reservas.md) |
 | Telemetría de pozos 3W (Petrobras) | `silver.telemetria_pozo_1min` | 7.774 ventanas | replay a demanda | [telemetria_3w.md](docs/fuentes/telemetria_3w.md) |
 
 Las dos primeras salen del mismo dataset de CKAN; reservas es un ZIP suelto por URL fuera del
-portal. `produccion_pozo` y `pozo_primera_produccion` todavía no tienen ficha propia en
-`docs/fuentes/`: lo medido sobre ellas está en el documento de semana 0 y en sus contratos.
+portal.
 
 ## Trazabilidad: qué es real, qué es simulado y qué es derivado
 
@@ -171,8 +170,12 @@ Lo que sigue son limitaciones reales del proyecto, no pendientes de redacción.
   aws: miran tablas que allá no existen y leen metadata de Iceberg con sintaxis de Spark.
 - **El CI no levanta el stack.** Valida lint, tests unitarios, Terraform e imports de DAGs; que
   los jobs de Spark corran de verdad contra Iceberg se verifica a mano en local (ADR 0007).
-- **La ingesta de producción usa la familia "DDJJ abiertas y cerradas"** sin haber comparado
-  todavía un año completo contra la familia normal (pendiente 5 de la semana 0).
+- **La ingesta de producción usa la familia "DDJJ abiertas y cerradas"**, comparada un año
+  completo (2024) contra la familia normal: es superconjunto estricto (0 filas con valores en
+  conflicto en lo que comparten, +159 declaraciones rectificadas que la normal no tiene) y es
+  la única que la Secretaría sigue actualizando — la normal quedó congelada 5 meses antes
+  según CKAN. Detalle en
+  [`docs/fuentes/comparacion-familias-produccion.md`](docs/fuentes/comparacion-familias-produccion.md).
 
 ## Documentación
 
