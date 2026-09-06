@@ -21,3 +21,11 @@ models:
       +materialized: table
     marts:
       +materialized: table
+    monitoreo:
+      +materialized: table
+      # Solo en el destino local. Los modelos de monitoreo miran tablas que en aws no existen
+      # —la agregación de streaming y la salida del modelo de ML viven solo acá— y leen la
+      # metadata de snapshots de Iceberg, que Spark y Athena exponen con sintaxis distinta.
+      # El entorno de aws además es efímero (se crea, se demuestra y se destruye): lo que hay
+      # que vigilar ahí son las ejecuciones de Step Functions, no la antigüedad de una tabla.
+      +enabled: "{{ target.name == 'local' }}"

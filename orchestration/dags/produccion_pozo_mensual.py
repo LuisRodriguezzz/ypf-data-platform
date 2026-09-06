@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pendulum
 from airflow.sdk import DAG
+from alertas import avisar_falla
 from runner import runner_task
 
 with DAG(
@@ -13,7 +14,7 @@ with DAG(
     start_date=pendulum.datetime(2026, 1, 1, tz="America/Argentina/Buenos_Aires"),
     catchup=False,
     max_active_runs=1,
-    default_args={"retries": 1},
+    default_args={"retries": 1, "on_failure_callback": avisar_falla},
     tags=["produccion_pozo", "bronze", "silver"],
     doc_md=__doc__,
 ) as dag:

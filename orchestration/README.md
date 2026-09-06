@@ -10,11 +10,37 @@ lanza el runner de Spark con un comando y espera a que muera (ADR 0006). `runner
 | `fractura_diaria` | `@daily` | ingesta → bronze → silver `fractura` |
 | `reservas_mensual` | `@monthly` | ingesta → bronze → silver `reservas` |
 | `gold_mensual` | día 1 a las 6 | `dbt build` (modelos y tests de gold, ADR 0009) |
+| `ml_mensual` | día 2 a las 7 | `entrenar` → `predecir` (ADR 0012) |
+| `monitoreo_diario` | `@daily` | `salud` (`dbt build --select monitoreo`) → `frescura` (`dbt source freshness`) |
 
 `gold_mensual` espera a las fuentes por calendario y no con un `ExternalTaskSensor`: los tres
 DAGs de origen no comparten schedule, así que un sensor pediría un `execution_date_fn` por cada
 uno para alinear intervalos que no coinciden. Corre seis horas después; el motivo está escrito
 en el `doc_md` del DAG.
+
+## Observabilidad y alertas
+
+`monitoreo_diario` es el único DAG que no mueve datos de negocio: reconstruye
+`gold.salud_pipeline` y `gold.calidad_por_corrida` —una fila por tabla del lakehouse con filas,
+última carga y estado de calidad— y después chequea la frescura de las fuentes contra los
+umbrales de `pipelines/dbt/models/sources.yml`. `dbt source freshness` termina con código
+distinto de cero si alguna fuente pasó su `error_after`, así que una fuente que dejó de
+publicarse hace fallar el DAG. No hay ningún servicio nuevo: son dos `dbt` en el runner de
+siempre.
+
+**Dónde se conecta un canal de alertas real.** En `orchestration/dags/alertas.py`. La función
+`avisar_falla` está enganchada en el `default_args` de los seis DAGs, así que cualquier tarea
+que falle pasa por ella, y hoy escribe una línea de log con el DAG, la tarea, la corrida, el
+intento y la URL de la UI:
+
+```text
+ALERTA | dag=monitoreo_diario | tarea=frescura | corrida=scheduled__2026-09-06T03:00:00+00:00 | intento=1 | http://localhost:8080/dags/...
+```
+
+Mandar eso a un correo, a Slack o a PagerDuty es cambiar esas cinco líneas y nada más: no hay
+un segundo lugar donde el proyecto decida qué hacer con una falla. Queda como log a propósito —
+un webhook de Slack en un repo público es un secreto en el repo, y un SMTP en la máquina de
+desarrollo es infraestructura que no se puede demostrar.
 
 ## Levantar
 

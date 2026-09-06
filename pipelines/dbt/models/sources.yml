@@ -1,21 +1,96 @@
 version: 2
 
+# `loaded_at_field` y `freshness` son el chequeo de frescura del proyecto (`dbt source
+# freshness`, DAG `monitoreo_diario`). Miden **la última carga efectiva**, no la última
+# corrida del DAG: silver reescribe una tabla solo cuando el sha256 del recurso cambió, así
+# que una fuente que el portal dejó de actualizar se queda vieja aunque el DAG corra todos
+# los días. Eso es exactamente lo que hay que ver.
+#
+# Los umbrales salen de la cadencia real de cada fuente, con margen para un atraso normal de
+# la publicación. Las tablas sin `freshness` (streaming, cuarentena, historial de calidad) se
+# declaran igual con su columna de carga, pero no se chequean: no tienen cadencia.
+
 sources:
   - name: silver
     description: >
       Capa silver del lakehouse: tablas Iceberg tipadas y validadas por los contratos de
       `pipelines/contracts/` (ADR 0005). Gold no lee bronze ni landing.
     schema: silver
+    # Todas las tablas que escribe `silver_load.py` llevan esta columna (ADR 0005).
+    loaded_at_field: _silver_loaded_at
 
     tables:
       - name: produccion_pozo
         description: "Producción mensual declarada por pozo (DDJJ), 2006 en adelante. Grano pozo-mes."
+        # La DDJJ se publica una vez por mes: 35 días admiten un mes largo más unos días de
+        # atraso; a los 45 ya se saltó una publicación entera.
+        freshness:
+          warn_after: {count: 35, period: day}
+          error_after: {count: 45, period: day}
 
       - name: pozo_primera_produccion
         description: "Padrón de pozos con el año y mes en que produjeron por primera vez."
+        # Sale del mismo dataset mensual que la producción, así que comparte umbrales.
+        freshness:
+          warn_after: {count: 35, period: day}
+          error_after: {count: 45, period: day}
 
       - name: fractura
         description: "Operaciones de fractura del Adjunto IV. Una fila por tratamiento declarado."
+        # El CSV se reemplaza entero todos los días (datos preliminares sujetos a revisión).
+        # Dos días sin cambios ya es raro; cinco es una fuente caída.
+        freshness:
+          warn_after: {count: 2, period: day}
+          error_after: {count: 5, period: day}
 
       - name: reservas
         description: "Reservas y recursos por yacimiento al 31/12, en formato largo (una fila por celda)."
+        # Publicación anual: se avisa pasado el año y pico y se falla cuando ya se saltó una
+        # edición completa.
+        freshness:
+          warn_after: {count: 400, period: day}
+          error_after: {count: 460, period: day}
+
+      - name: telemetria_pozo_1min
+        description: >
+          Agregación por pozo y minuto de la telemetría 3W (ADR 0011), escrita por el job de
+          Structured Streaming. `data_origin = 'simulated'`.
+        # Sin `freshness`: la demo de streaming se lanza a mano (`scripts/streaming-demo.*`),
+        # no tiene cadencia y chequearla daría siempre error.
+        loaded_at_field: _ingested_at
+
+      - name: dq_runs
+        description: >
+          Historial de calidad: una fila por contrato, recurso y corrida de `silver_load.py`,
+          con filas leídas, publicadas, rechazadas y el estado del check duro (ADR 0005).
+        # Sin `freshness`: se escribe cuando corre cualquiera de los tres DAGs de fuente, así
+        # que su cadencia es la del más frecuente y no dice nada que no diga `fractura`.
+        loaded_at_field: run_at
+
+      - name: produccion_pozo_rejects
+        description: "Cuarentena de producción: filas que violaron un rango del contrato, con sus strings originales."
+        loaded_at_field: _rejected_at
+
+      - name: fractura_rejects
+        description: "Cuarentena de fractura (presiones y potencias fuera de los topes físicos)."
+        loaded_at_field: _rejected_at
+
+      - name: reservas_rejects
+        description: "Cuarentena de reservas (volúmenes negativos)."
+        loaded_at_field: _rejected_at
+
+  - name: gold
+    description: >
+      Tablas de gold que **no** escribe dbt. Hoy es una sola: la salida de la inferencia batch
+      del módulo de ML (ADR 0012), que escribe `pipelines/ml/predecir.py` con pyiceberg. Se
+      declara como source y no como modelo porque dbt no la produce: solo la mira.
+    schema: gold
+
+    tables:
+      - name: prediccion_produccion_12m
+        description: "Producción de petróleo a 12 meses estimada para los pozos no convencionales. `data_origin = 'derived'`."
+        loaded_at_field: predicho_en
+        # La escribe el DAG `ml_mensual` el día 2 de cada mes: misma cadencia que la DDJJ.
+        freshness:
+          warn_after: {count: 35, period: day}
+          error_after: {count: 45, period: day}

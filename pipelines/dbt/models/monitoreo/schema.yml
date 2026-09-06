@@ -1,0 +1,117 @@
+version: 2
+
+models:
+  - name: salud_pipeline
+    description: >
+      Estado del lakehouse en una tabla: una fila por tabla publicada de silver y gold, con
+      cuántas filas tiene, cuándo se cargó por última vez, cuántos días pasaron desde entonces
+      y qué dijo el último control de calidad de su contrato.
+
+      Es la primera consulta cuando alguien pregunta si el pipeline está andando, y la que
+      contesta "esta tabla está vieja" sin abrir Airflow. El DAG `monitoreo_diario` la
+      reconstruye todos los días.
+
+      **Qué no incluye.** Las tablas operativas de silver (`dq_runs` y las `_rejects`), porque
+      son el origen de las columnas de calidad y no datos publicados, y los dos modelos de
+      `monitoreo` mismos, que no pueden mirarse a sí mismos.
+
+      **De dónde sale cada fecha.** En silver, de `_silver_loaded_at`, que el job escribe en
+      cada fila publicada. En gold, del último snapshot de la tabla Iceberg, porque los modelos
+      de dbt no llevan columna de carga. Las dos miden lo mismo: la última escritura efectiva.
+
+    columns:
+      - name: capa
+        description: "`silver` o `gold`."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["silver", "gold"]
+
+      - name: tabla
+        description: "Nombre de la tabla dentro de su capa. Es el grano del modelo."
+        data_tests: [unique, not_null]
+
+      - name: contrato
+        description: >
+          Contrato de `pipelines/contracts/` que produjo la tabla. Nulo en gold y en las tablas
+          de streaming, que no pasan por `silver_load.py`.
+
+      - name: filas
+        description: "Filas de la tabla al momento de construir este modelo."
+        data_tests: [not_null]
+
+      - name: ultima_carga
+        description: >
+          Última escritura efectiva. Puede ser nula si la tabla existe pero está vacía (por
+          ejemplo, la agregación de streaming antes de la primera demo).
+
+      - name: dias_desde_la_carga
+        description: >
+          Días entre `ultima_carga` y hoy. Un número alto en una fuente diaria es el síntoma que
+          este modelo existe para mostrar; los umbrales por fuente viven en el `freshness` de
+          `sources.yml`.
+
+      - name: filas_rechazadas_historicas
+        description: >
+          Suma de `rows_rejected` de todas las corridas del contrato en `dq_runs`. Es un
+          acumulado histórico: un recurso reprocesado dos veces suma sus rechazos dos veces.
+          Para el estado de hoy está `filas_en_cuarentena`.
+
+      - name: filas_en_cuarentena
+        description: >
+          Filas que hay ahora en la tabla `_rejects` del contrato. Nula cuando el contrato nunca
+          rechazó nada y la tabla no llegó a crearse, y en gold.
+
+      - name: ultima_corrida_calidad
+        description: "`run_at` de la última corrida de `silver_load.py` para ese contrato."
+
+      - name: estado_ultima_corrida
+        description: >
+          `ok` o `failed` según los checks duros del contrato. `failed` si algún recurso de esa
+          corrida no pudo publicarse (columna faltante, nulos donde no van, clave duplicada o
+          más del 1 % de filas rechazadas).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["ok", "failed"]
+
+  - name: calidad_por_corrida
+    description: >
+      `silver.dq_runs` resumida por contrato y día: filas leídas, publicadas y rechazadas, y la
+      tasa de rechazo. Sirve para ver la evolución de la calidad de una fuente en el tiempo, que
+      es lo que una corrida suelta no muestra.
+
+      El grano es día y no corrida porque una carga mensual dispara varias corridas seguidas,
+      una por recurso pendiente. El detalle recurso por recurso queda en `silver.dq_runs`.
+
+    columns:
+      - name: contrato
+        description: "Contrato de datos aplicado (`pipelines/contracts/<contrato>.yaml`)."
+        data_tests: [not_null]
+
+      - name: fecha
+        description: "Día de la corrida. Con `contrato` forma el grano del modelo."
+        data_tests: [not_null]
+
+      - name: recursos
+        description: "Recursos procesados ese día para ese contrato."
+        data_tests: [not_null]
+
+      - name: filas_leidas
+        description: "Filas de bronze que entraron al job."
+
+      - name: filas_publicadas
+        description: "Filas que quedaron en silver. Menos que las leídas por rechazos y por deduplicación."
+
+      - name: filas_rechazadas
+        description: "Filas que violaron un rango del contrato y fueron a cuarentena."
+
+      - name: tasa_de_rechazo
+        description: >
+          `filas_rechazadas / filas_leidas`. El contrato falla duro cuando pasa de 0,01 en un
+          recurso, así que un valor cercano a ese umbral es la señal de alerta temprana.
+
+      - name: recursos_con_falla_dura
+        description: "Recursos de ese día que no se publicaron por un check duro. Debería ser 0."
+        data_tests: [not_null]

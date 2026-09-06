@@ -13,14 +13,15 @@ modelo se entrena con el mart del mes anterior, que es un resultado viejo pero c
 **MLflow.** `runner.py` reenvía al runner solo las variables de `FORWARDED_ENV`, y
 `MLFLOW_TRACKING_URI` no está en esa lista. `runner_task` no acepta variables extra, así que
 la URL va delante del comando: el runner corre con `bash -c`, donde `VAR=valor comando` es
-una asignación válida. Es una línea por tarea y evita tocar una pieza compartida por los
-cinco DAGs para el caso de uso de uno solo.
+una asignación válida. Es una línea por tarea y evita tocar una pieza compartida por todos
+los DAGs para el caso de uso de uno solo.
 """
 
 from __future__ import annotations
 
 import pendulum
 from airflow.sdk import DAG
+from alertas import avisar_falla
 from runner import runner_task
 
 # El tracking server del perfil `mlflow` del compose, visto desde la red de Podman.
@@ -34,7 +35,7 @@ with DAG(
     start_date=pendulum.datetime(2026, 1, 1, tz="America/Argentina/Buenos_Aires"),
     catchup=False,
     max_active_runs=1,
-    default_args={"retries": 1},
+    default_args={"retries": 1, "on_failure_callback": avisar_falla},
     tags=["ml", "mlflow", "gold"],
     doc_md=__doc__,
 ) as dag:
