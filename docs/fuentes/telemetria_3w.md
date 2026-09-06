@@ -57,8 +57,11 @@ contra la API de GitHub (`research/gap-1.md`):
 
 ## Subconjunto que usa el proyecto
 
-`pipelines/streaming/fetch_3w.py --classes 0,2,7` con los cupos por defecto (10 / 22 / 10).
-Medido sobre `landing` el 2026-09-06:
+`pipelines/streaming/fetch_3w.py --classes 0,2,7`. Con los cupos por defecto (10 / 22 / 10) la
+demo de streaming usa 42 archivos (33,7 MB); para entrenar el clasificador de eventos se
+ampliaron a 30 / 22 / 36 (88 archivos, 18 pozos, 8,5 M lecturas), ver
+`docs/ml/clasificador-eventos-pozo.md`. Medido sobre `landing` el 2026-09-06 con los cupos por
+defecto:
 
 | Clase | Archivos | MB en landing | Pozos distintos |
 | --- | ---: | ---: | ---: |

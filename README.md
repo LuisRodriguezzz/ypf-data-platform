@@ -198,7 +198,7 @@ Lo que sigue son limitaciones reales del proyecto, no pendientes de redacción.
 - **Decisiones de arquitectura** — [`docs/adr/`](docs/adr/): un stack dos destinos (0001),
   DuckDB y Athena (0002), catálogo SQLite (0003), Spark en contenedor (0004), contratos en YAML
   (0005), Airflow solo orquesta (0006), CI (0007), Glue y Step Functions (0008), gold con dbt
-  (0009), gold en aws con dbt-athena (0010), streaming (0011), ML con MLflow (0012), ambientes dev y prod (0014).
+  (0009), gold en aws con dbt-athena (0010), streaming (0011), ML con MLflow (0012), clasificador de eventos 3W (0013), ambientes dev y prod (0014).
 - **Fuentes** — [`docs/fuentes/`](docs/fuentes/): perfil medido de fractura, reservas y 3W;
   [`docs/semana-0-derisking.md`](docs/semana-0-derisking.md) tiene las pruebas contra las
   fuentes reales previas a escribir infraestructura.
@@ -207,7 +207,9 @@ Lo que sigue son limitaciones reales del proyecto, no pendientes de redacción.
   Iceberg ni Airflow; y `aws-azure-databricks.md`, guía de estudio de los servicios equivalentes
   en las tres nubes, con precios citados de las páginas oficiales.
 - **ML** — [`docs/ml/modelo-completacion-produccion.md`](docs/ml/modelo-completacion-produccion.md):
-  datos, features, evaluación, SHAP y limitaciones.
+  datos, features, evaluación, SHAP y limitaciones; y
+  [`docs/ml/clasificador-eventos-pozo.md`](docs/ml/clasificador-eventos-pozo.md): ventanas sobre
+  telemetría, evaluación por clase y tiempo de anticipación.
 - **Módulos** — READMEs propios en [`pipelines/ingest/`](pipelines/ingest/README.md),
   [`pipelines/contracts/`](pipelines/contracts/README.md),
   [`orchestration/`](orchestration/README.md) e [`infra/terraform/`](infra/terraform/README.md).
