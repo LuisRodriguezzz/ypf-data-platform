@@ -3,20 +3,20 @@
 Este documento es un recorrido guiado por el código real del repositorio, pensado para
 alguien que sabe Python y SQL pero no vio Spark, Iceberg, Airflow ni AWS en profundidad.
 No es un resumen de los READMEs: cada afirmación sale de un archivo concreto, y cuando se
-cita código son las líneas reales del repo en la fecha de este recorrido (2026-09-05).
+cita código son las líneas reales del repo en la fecha de este recorrido (2026-09-06).
 
-Nota de alcance: mientras se escribía este documento había otro trabajo en curso sobre
-`pipelines/reservas/` (hoy un módulo con un solo docstring, sin lógica) y sobre
-`pipelines/contracts/fractura.yaml`. Se mencionan donde corresponde porque ya están enganchados
-en `datasets.yaml`, `bronze_tables.yaml` y el DAG `fractura_diaria`, pero su contenido de
-negocio queda para una segunda edición: acá se explica solo la mecánica genérica, no las reglas
-específicas de fractura ni de reservas.
+Nota de alcance: la primera edición de este documento (sesiones 1 a 8) se escribió cuando
+`pipelines/reservas/` era un módulo con un solo docstring, sin lógica, y dbt, streaming y ML
+todavía no existían en el repo. Esa brecha ya se cerró: las sesiones 9 a 12, agregadas en esta
+edición, cubren el parser de XLSX de reservas, gold con dbt, streaming con Kafka y el modelo de
+ML de completación de producción. `pipelines/contracts/fractura.yaml` sigue mencionado solo en
+su mecánica genérica (el contrato como tal), no en sus reglas de negocio específicas.
 
 ---
 
 ## 1. Cómo usar este recorrido
 
-Son 8 sesiones de 45 a 60 minutos. Cada una asume que hiciste la anterior. La idea no es leer
+Son 12 sesiones de 45 a 60 minutos. Cada una asume que hiciste la anterior. La idea no es leer
 este documento de corrido, sino abrir el editor, leer el archivo real al lado del resumen y
 correr el comando sugerido. Si no tenés el stack local levantado, igual leé el código: la
 sesión 5 explica cómo levantarlo.
@@ -30,7 +30,11 @@ sesión 5 explica cómo levantarlo.
 | 5 | Orquestación local | `infra/docker/compose.yaml`, `orchestration/dags/*.py` |
 | 6 | AWS | `infra/terraform/*.tf`, `pipelines/aws/*.py` |
 | 7 | Tests y CI | `tests/**`, `.github/workflows/ci.yml` |
-| 8 | Las decisiones | `docs/adr/0001` a `0008` |
+| 8 | Las decisiones | `docs/adr/0001` a `0012` |
+| 9 | Reservas y el parser de XLSX | `pipelines/reservas/*.py` |
+| 10 | Gold con dbt | `pipelines/dbt/**` |
+| 11 | Streaming | `pipelines/streaming/*.py`, perfil `streaming` del compose |
+| 12 | ML y monitoreo | `pipelines/ml/*.py`, `pipelines/dbt/models/monitoreo/*`, `orchestration/dags/{ml_mensual,monitoreo_diario}.py` |
 
 Cada sesión trae tres cosas: **qué leer** (los archivos, en orden), **qué correr** (comandos
 reales del repo) y **qué tenés que poder explicar al terminar** (preguntas para responder sin
@@ -39,6 +43,11 @@ volver a mirar el código).
 Prerequisito para las sesiones 3 a 6: Postgres y MinIO corriendo (perfil `core` del compose) y,
 para 3-5, además el perfil `spark` o `airflow`. La sesión 2 corre sola con `uv sync` si tenés
 Postgres y credenciales de S3/MinIO; si no, se puede leer sin ejecutar nada.
+
+Prerequisitos de las sesiones nuevas: la 9 solo necesita el perfil `core` (pyiceberg no levanta
+Spark). La 10 necesita el perfil `spark` (dbt corre dentro del runner). La 11 necesita además el
+perfil `streaming` (Kafka). La 12 necesita el perfil `spark` y, para ver el tracking real, el
+perfil `mlflow`.
 
 ---
 
@@ -70,21 +79,34 @@ pipelines/
     silver_load.py    job de Spark que aplica el contrato y escribe silver
     requirements-runner.txt  dependencias que se instalan en el runner
   contracts/        un YAML por tabla silver (sesión 4)
-    produccion_pozo.yaml, pozo_primera_produccion.yaml, fractura.yaml (en curso)
-  aws/              wrappers finos para Glue (sesión 6): ingest_job.py, bronze_job.py,
-                    silver_job.py, ssm.py
-  reservas/         stub sin lógica (segunda edición)
-  ml/, streaming/   carpetas reservadas, vacías por ahora
+    produccion_pozo.yaml, pozo_primera_produccion.yaml, fractura.yaml, reservas.yaml
+  aws/              wrappers finos para Glue (sesiones 6, 9 y 10): ingest_job.py, bronze_job.py,
+                    silver_job.py, bronze_reservas_job.py, gold_dbt_job.py, ssm.py
+  reservas/         parser de XLSX + bronze con pyiceberg, sin Spark (sesión 9)
+    parser.py         encabezado jerárquico, rangos fusionados, forma ancha -> forma larga
+    bronze_load.py    escribe a Iceberg con pyiceberg (sin spark-submit)
+  dbt/              gold: modelo dimensional sobre silver (sesión 10)
+    run_dbt.py, profiles.yml, dbt_project.yml, macros/, models/{dimensiones,hechos,marts,
+    monitoreo}/, tests/, sources.yml
+  streaming/        telemetría de pozos por Kafka (sesión 11)
+    replay_3w.py      productor: intercalado, tardíos, idempotencia
+    consume_telemetria.py  consumidor: readStream, watermark, ventanas, dos queries
+    pozo_map.py, eventos.py, fetch_3w.py
+  ml/               modelo de completación de producción (sesión 12)
+    datos.py, entrenar.py, predecir.py, registro.py
 orchestration/dags/
   runner.py         arma el DockerOperator que lanza el runner de Spark
   produccion_pozo_mensual.py, fractura_diaria.py, reservas_mensual.py
+  ml_mensual.py, monitoreo_diario.py, alertas.py
 infra/
-  docker/  compose.yaml, spark-defaults.conf, postgres/init.sql, .env.example
+  docker/  compose.yaml (perfiles core, spark, airflow, streaming, mlflow), spark-defaults.conf,
+           postgres/init.sql, .env.example
   terraform/  s3.tf, iam.tf, glue.tf, stepfunctions.tf, athena.tf, variables.tf,
               outputs.tf, versions.tf
-scripts/  spark-submit.ps1/.sh, aws_deploy.ps1/.sh, aws_logs.ps1, check_dags.py, check_lake.py
-tests/    ingest/, spark_jobs/
-docs/     adr/0001 a 0008, semana-0-derisking.md, fuentes/, aprendizaje/
+scripts/  spark-submit.ps1/.sh, dbt.ps1, streaming-up.ps1, streaming-demo.ps1, aws_deploy.ps1/.sh,
+          aws_logs.ps1, check_dags.py, check_lake.py
+tests/    ingest/, spark_jobs/, reservas/, streaming/, ml/
+docs/     adr/0001 a 0012, semana-0-derisking.md, fuentes/, ml/, aprendizaje/
 config/   local.env — única fuente de configuración para correr todo en local
 ```
 
@@ -94,22 +116,32 @@ Todo el proyecto es una cadena de tres capas (un patrón que se conoce como **ar
 medallion**):
 
 ```
-fuentes públicas (CKAN, ZIP por HTTP)
-        │  pipelines/ingest  (streaming, sha256, manifiesto)
-        ▼
-   landing (S3/MinIO)          CSV crudos, tal como los publica la fuente
-        │  pipelines/spark_jobs/bronze_load.py
-        ▼
-   bronze (Iceberg)            mismos datos, todo string, con columnas de linaje
+fuentes públicas (CKAN, ZIP por HTTP)          telemetría de pozos (3W, vía Kafka)
+        │  pipelines/ingest  (streaming, sha256, manifiesto)     │  replay_3w.py -> topic
+        ▼                                                        ▼  consume_telemetria.py
+   landing (S3/MinIO)          CSV/ZIP/XLSX crudos          readStream + watermark + ventana
+        │  pipelines/spark_jobs/bronze_load.py                   │  (dos queries)
+        │  pipelines/reservas/bronze_load.py (pyiceberg, sin Spark)
+        ▼                                                        ▼
+   bronze (Iceberg)            mismos datos, todo string    bronze.telemetria_pozo (crudo)
         │  pipelines/spark_jobs/silver_load.py + contrato YAML
+        ▼                                                        ▼
+   silver (Iceberg)            tipado, deduplicado, cuarentena    silver.telemetria_pozo_1min
+        │  pipelines/dbt (sesión 10): ref/source, un modelo por vez
         ▼
-   silver (Iceberg)            tipado, deduplicado, con cuarentena de filas rechazadas
+   gold (Iceberg, dbt)         dim_pozo (SCD2), fact_*, marts
+        │  pipelines/ml (sesión 12): entrenar.py (MLflow) -> predecir.py
+        ▼
+   gold.prediccion_produccion_12m   inferencia batch, con pyiceberg
 ```
 
 Landing no es una tabla: son objetos en un bucket S3, organizados por key
-(`{prefijo}/resource_id=.../ingest_date=.../archivo`). Bronze y silver sí son tablas Iceberg —
-un formato de tabla, no una base de datos, que agrega sobre Parquet un catálogo de esquemas,
-particiones y snapshots. El porqué de cada paso se ve en las sesiones 2 a 4.
+(`{prefijo}/resource_id=.../ingest_date=.../archivo`). Bronze, silver y gold sí son tablas
+Iceberg — un formato de tabla, no una base de datos, que agrega sobre Parquet un catálogo de
+esquemas, particiones y snapshots. El porqué de cada paso se ve en las sesiones 2 a 4 (landing/
+bronze/silver "clásicos"), 9 (el bronze de reservas, con pyiceberg y sin Spark), 10 (gold, con
+dbt) y 11 (la rama de streaming, que tiene su propio bronze y silver por fuera de los contratos
+YAML). Sobre gold se para, además, el modelo de ML de la sesión 12.
 
 ### Los tres puntos de entrada
 
@@ -1037,17 +1069,20 @@ uv run python scripts/check_lake.py --namespace silver
 ### `compose.yaml`, servicio por servicio
 
 ```yaml
-# infra/docker/compose.yaml líneas 3-9
+# infra/docker/compose.yaml líneas 3-8
 # Perfiles:
 #   core      -> MinIO (S3), Postgres (metadata), catálogo Iceberg REST      [siempre]
 #   spark     -> runner efímero de Spark (ADR 0004), no es un servicio        [etapa 1]
 #   airflow   -> orquestador; lanza el runner por tarea (ADR 0006)            [etapa 1]
-#   streaming -> Kafka + productor de replay 3W                               [etapa 2]
+#   streaming -> broker de Kafka (KRaft) para la telemetría 3W                 [etapa 2]
+#   mlflow    -> tracking server y model registry del módulo de ML (ADR 0012)  [etapa 2]
 ```
 
 Un **perfil** de Docker Compose es una etiqueta que agrupa servicios: si no se pide el perfil,
 el servicio no se levanta. Esto permite tener un solo archivo de compose para todo el
-proyecto sin que levantar el stack básico traiga también Airflow o Kafka.
+proyecto sin que levantar el stack básico traiga también Airflow, Kafka o MLflow. Los perfiles
+`streaming` y `mlflow` se retoman en detalle en las sesiones 11 y 12; acá solo entran en el
+inventario de servicios.
 
 - **`minio`**: object storage compatible con S3. Puertos `9000` (API), `9001` (consola).
   `healthcheck` con `mc ready local` para que los dependientes esperen a que esté listo.
@@ -1129,9 +1164,10 @@ las dos tareas silver son independientes entre sí: cada runner levanta un drive
 tiempo.
 
 `fractura_diaria` tiene el mismo patrón con `schedule="@daily"` (si el sha256 no cambió, silver
-no hace nada gracias a `pending_resources`). `reservas_mensual` solo tiene la tarea de ingesta
-— todavía no hay tabla bronze para los ZIP (recordá que `pipelines/reservas/` sigue en
-desarrollo, sin lógica de descompresión).
+no hace nada gracias a `pending_resources`). `reservas_mensual` encadena `ingesta >> bronze >>
+silver` igual que `produccion_pozo_mensual`, con una diferencia: su tarea `bronze` no es un
+`spark-submit`, es `python3 -m pipelines.reservas.bronze_load` (pyiceberg, sin Spark) — se
+retoma en detalle en la sesión 9.
 
 ### Qué correr
 
@@ -1167,6 +1203,186 @@ podman exec ypf-lakehouse_airflow_1 airflow dags trigger fractura_diaria
 | `variables.tf`/`outputs.tf` | Entradas y salidas (`lakehouse_bucket`, `glue_jobs`, `state_machine_arns`) | Las leen los scripts de despliegue |
 
 Nota de lectura: los jobs de Glue fueron genéricos desde la refactorización de fractura (`ingest_landing`, `bronze_load`, `silver_load`) y las máquinas de estado se crean con `for_each` sobre el mapa `local.pipelines` de `stepfunctions.tf`. `outputs.tf` expone `glue_jobs` y `state_machine_arns` (un mapa por pipeline). Cuando leas Terraform, comprobá siempre con `terraform output` que los nombres del código coinciden con los del estado.
+
+### Lo que agregaron reservas y gold: dos jobs más, y el mapa `local.pipelines` creció
+
+`glue.tf` tiene ahora una base de datos de Glue nueva para gold y dos jobs más, con el mismo
+criterio de "job genérico, argumentos por Terraform" que ya usaban `bronze_load`/`silver_load`:
+
+```hcl
+# infra/terraform/glue.tf líneas 14-17
+resource "aws_glue_catalog_database" "gold" {
+  name        = "gold"
+  description = "Capa gold: modelo dimensional construido con dbt sobre Athena (ADR 0010)."
+}
+```
+
+`bronze_reservas` es el único job de bronze que **no** es Spark. Corre en Python shell, igual
+que `ingest_landing`, porque el ZIP anual de reservas pesa 400 KB y el trabajo real es
+desarmar un Excel con encabezado jerárquico (sesión 9) — algo que Spark ni siquiera sabe leer,
+y levantar una JVM de varios GB para eso sería puro desperdicio:
+
+```hcl
+# infra/terraform/glue.tf líneas 101-132 (resumido)
+# Bronze de reservas: el ZIP anual son 400 KB y el trabajo es desarmar un cuadro de Excel,
+# algo que Spark no lee. Va como Python shell y escribe la tabla Iceberg con pyiceberg contra
+# el Glue Data Catalog (pipelines/reservas/bronze_load.py).
+resource "aws_glue_job" "bronze_reservas" {
+  name = "bronze_reservas"
+  # 1 DPU (16 GB) y no 1/16: openpyxl levanta la planilla entera en memoria y pyarrow arma
+  # las 200.000 filas antes de escribirlas. En 1 GB no entra.
+  max_capacity = 1
+  command {
+    name            = "pythonshell"
+    python_version  = "3.9"
+    script_location = "${local.artifacts_uri}/bronze_reservas_job.py"
+  }
+  default_arguments = merge(local.target_arguments, {
+    "--additional-python-modules"  = "pyiceberg[glue]==0.10.0,pyarrow==17.0.0,openpyxl==3.1.5,sqlalchemy==2.0.52,psycopg[binary]==3.2.13,pydantic-settings==2.9.1"
+    "--POSTGRES_DSN_SSM_PARAMETER" = var.postgres_dsn_ssm_parameter
+  })
+}
+```
+
+Un detalle de packaging que solo aparece acá: `pyarrow` va listado aparte y no como el extra
+`pyiceberg[glue,pyarrow]`, porque Glue separa esa lista por comas y una lista de extras entre
+corchetes la rompería. `pydantic-settings` entra aunque el job no la use directo, porque
+importar el módulo de manifiesto reexporta `Settings` de `pipelines.ingest`.
+
+`gold_dbt` corre sobre Glue **5.0** (el job type con Spark), aunque dbt-athena no usa Spark
+para nada — el motivo es Python: Python shell sigue clavado en 3.9, y dbt-core dejó de dar
+soporte a esa versión en la 1.11; Glue 5.0 trae Python 3.11, la misma versión que corre en local:
+
+```hcl
+# infra/terraform/glue.tf líneas 153-187 (resumido)
+resource "aws_glue_job" "gold_dbt" {
+  command {
+    name            = "glueetl"
+    python_version  = "3"
+    script_location = "${local.artifacts_uri}/gold_dbt_job.py"
+  }
+  default_arguments = {
+    # Acá el wheel se instala CON dependencias (sin --no-deps, al revés que bronze/silver):
+    # pip tiene que resolver las de dbt.
+    "--additional-python-modules" = "${local.artifacts_uri}/${var.wheel_name},dbt-core==1.11.14,dbt-athena==1.11.0"
+    "--AWS_REGION"       = var.region
+    "--ATHENA_WORKGROUP" = aws_athena_workgroup.lakehouse.name
+    "--ATHENA_DATABASE"  = "awsdatacatalog"
+    "--S3_STAGING_DIR"   = "${local.bucket_uri}/athena-results/"
+    "--S3_DATA_DIR"      = "${local.bucket_uri}/warehouse/gold/"
+  }
+}
+```
+
+En `stepfunctions.tf`, `local.pipelines` gana una entrada `reservas_mensual` cuyo paso `bronze`
+apunta al job nuevo, con el mismo esqueleto `ingesta -> bronze -> silver` de siempre:
+
+```hcl
+# infra/terraform/stepfunctions.tf líneas 12-39 (resumido)
+locals {
+  pipelines = {
+    produccion_pozo_mensual = { dataset = "produccion_pozo", contract = "produccion_pozo",
+      bronze_job = aws_glue_job.bronze_load.name, cron = "cron(0 6 1 * ? *)" }
+    fractura_diaria = { dataset = "fractura", contract = "fractura",
+      bronze_job = aws_glue_job.bronze_load.name, cron = "cron(0 7 * * ? *)" }
+    reservas_mensual = {
+      dataset  = "reservas"
+      contract = "reservas"
+      # El único pipeline cuyo bronze no es Spark: el ZIP anual es un cuadro de Excel y lo
+      # parsea un Python shell (glue.tf). El `--dataset` de abajo le llega igual y lo ignora,
+      # porque este job carga una sola tabla.
+      bronze_job = aws_glue_job.bronze_reservas.name
+      cron = "cron(0 6 1 * ? *)"
+    }
+  }
+```
+
+Gold es distinto: no tiene ingesta ni bronze ni silver, es un solo paso. Entra igual al mismo
+`for_each` de máquinas de estado fusionando su definición con `merge(...)`, para no duplicar el
+recurso de la máquina ni el del schedule de EventBridge:
+
+```hcl
+# infra/terraform/stepfunctions.tf líneas 94-109 (resumido)
+{
+  gold_mensual = {
+    Comment       = "gold: dbt build sobre silver, con Athena de motor"
+    QueryLanguage = "JSONata"
+    StartAt       = "gold"
+    States = {
+      gold = {
+        Type      = "Task"
+        Resource  = "arn:aws:states:::glue:startJobRun.sync"
+        Arguments = { JobName = aws_glue_job.gold_dbt.name }
+        End       = true
+      }
+    }
+  }
+},
+```
+
+Su cron (`cron(0 6 1 * ? *)`) es el mismo día/hora que los pipelines mensuales de fuentes: gold
+corre después de que terminaron de correr sus fuentes ese mismo primer día del mes. `outputs.tf`
+suma los dos jobs a la lista existente:
+
+```hcl
+# infra/terraform/outputs.tf líneas 6-15
+output "glue_jobs" {
+  value = [
+    aws_glue_job.ingest_landing.name,
+    aws_glue_job.bronze_load.name,
+    aws_glue_job.bronze_reservas.name,
+    aws_glue_job.silver_load.name,
+    aws_glue_job.gold_dbt.name,
+  ]
+}
+```
+
+Y en `pipelines/aws/*.py` aparecen dos wrappers nuevos, con el mismo estilo fino de los ya
+vistos. `bronze_reservas_job.py` repite el patrón de `ingest_job.py` (instala el wheel a mano
+porque corre en Python shell, antes de que el paquete exista):
+
+```python
+# pipelines/aws/bronze_reservas_job.py líneas 47-69 (resumido)
+def main() -> int:
+    logging.basicConfig(level=logging.INFO, ..., force=True)
+    args = getResolvedOptions(sys.argv, ["WHEEL_S3_URI", "POSTGRES_DSN_SSM_PARAMETER", *ENV_ARGS])
+    for name in ENV_ARGS:
+        os.environ[name] = args[name]
+    instalar_paquete(args["WHEEL_S3_URI"])
+    from pipelines.aws.ssm import parameter_value
+    from pipelines.reservas.bronze_load import main as bronze_main
+    os.environ["POSTGRES_DSN"] = parameter_value(args["POSTGRES_DSN_SSM_PARAMETER"], args["S3_REGION"])
+    return bronze_main([])
+```
+
+`force=True` en `basicConfig` es necesario porque el runtime de Glue ya configuró el logging
+raíz antes de que el script arranque; sin ese parámetro las líneas `INFO` nunca llegarían a
+CloudWatch. `gold_dbt_job.py` no reusa `run_dbt.py` (que asume una SparkSession que en Athena
+no existe): invoca a dbt directo contra el target `aws`:
+
+```python
+# pipelines/aws/gold_dbt_job.py líneas 40-56 (resumido)
+def main() -> int:
+    args = getResolvedOptions(sys.argv, [*ENV_ARGS])
+    for name in ENV_ARGS:
+        os.environ[name] = args[name]
+    os.environ["DBT_PROJECT_DIR"] = str(PROJECT_DIR)
+    os.environ["DBT_PROFILES_DIR"] = str(PROJECT_DIR)
+    os.environ["DBT_TARGET_PATH"] = str(ARTIFACTS_DIR / "target")
+    os.environ["DBT_LOG_PATH"] = str(ARTIFACTS_DIR / "logs")
+    from dbt.cli.main import dbtRunner
+    result = dbtRunner().invoke(["build", "--target", "aws"])
+    return 0 if result.success else 1
+```
+
+`PROJECT_DIR` sale de `Path(pipelines.__file__).resolve().parent / "dbt"`: como el proyecto de
+dbt viaja adentro del wheel, sus archivos quedan en disco de verdad al instalarlo con pip (a
+diferencia de `ingest_job.py`, que lo descomprime a mano como zip). `ARTIFACTS_DIR` manda
+`target/`/`logs/` a `/tmp/dbt` porque el paquete instalado es de solo lectura. Se usa `build` (no
+`run` + `test` por separado) para que un test que falla frene la publicación de una tabla no
+validada, en vez de dejarla escrita igual. Los dos wrappers repiten la misma nota que
+`bronze_job.py`: nunca `sys.exit(0)`, porque Glue marca como fallo cualquier `SystemExit`, sea
+cual sea el código.
 
 ### `pipelines/aws/*.py`: los wrappers
 
@@ -1274,6 +1490,10 @@ scripts\aws_logs.ps1
 - Cómo llega el DSN de Postgres a un job de Glue sin aparecer en los argumentos.
 - Por qué `sys.exit(0)` está prohibido en los wrappers de Glue.
 - La inconsistencia entre `outputs.tf` y `glue.tf`, y por qué `terraform validate` no la detecta.
+- Por qué `bronze_reservas` es Python shell y `gold_dbt` es Glue ETL aunque ninguno de los dos
+  use Spark de verdad para su trabajo principal.
+- Cómo entra `gold_mensual` al mismo `for_each` de máquinas de estado que los pipelines de
+  ingesta-bronze-silver, siendo un flujo de un solo paso.
 
 ---
 
@@ -1415,7 +1635,7 @@ uv run pytest -q
 
 ## 9. Sesión 8 — Las decisiones
 
-### Los ocho ADR, en una tabla
+### Los doce ADR, en una tabla
 
 | ADR | Decisión | Alternativa descartada | Por qué |
 |---|---|---|---|
@@ -1427,8 +1647,12 @@ uv run pytest -q
 | 0006 | Airflow solo orquesta, lanza el runner por Docker/Podman | `PythonOperator` en Airflow, o `KubernetesPodOperator` | Evita duplicar dependencias; evita pedir un clúster |
 | 0007 | CI sin levantar el stack completo | Reproducir Podman+MinIO+Spark+Iceberg en CI | Sostener un segundo entorno es caro |
 | 0008 | Glue + Step Functions, Neon como Postgres | EMR, MWAA, RDS | MWAA cuesta ~350 USD/mes esté o no corriendo algo |
+| 0009 | Gold se modela con dbt-spark (`method: session`) dentro del mismo runner efímero que bronze y silver | dbt-duckdb sobre Iceberg en MinIO | Con DuckDB, gold quedaría en Parquet suelto registrado aparte; `method: session` reutiliza la SparkSession que ya existe y gold queda en `lake.gold`, igual que las capas de abajo |
+| 0010 | En AWS, gold corre con dbt-athena dentro de un job de Glue 5.0 (Spark), aunque Spark no se usa | `dbt-glue` (sesión interactiva de Glue), o dbt desde GitHub Actions con OIDC | `dbt-glue` suma un motor más que mantener; GitHub Actions saca a gold de Step Functions y parte el pipeline entre dos orquestadores. Se usa Glue 5.0 y no Python shell porque Python shell sigue en 3.9 y dbt-core dejó de soportarlo en la 1.11 |
+| 0011 | Streaming con Kafka (un broker, KRaft) y Spark Structured Streaming, dos queries (bronze crudo + silver por ventana de 1 minuto) | Kinesis local emulado, Redpanda, Flink, o escribir bronze directo desde el productor | Kinesis local no es el servicio real; Flink sumaría un segundo motor para un solo job; escribir bronze desde el productor perdería el sentido del ejercicio (que el checkpoint del consumidor evite duplicar en un reinicio) |
+| 0012 | HistGradientBoostingRegressor de scikit-learn, split `GroupKFold` por yacimiento, tracking en MLflow propio (Postgres + MinIO), inferencia batch a Iceberg | Deep learning; split aleatorio; servir el modelo como endpoint HTTP | Con 351 filas y 17 columnas una red neuronal tiene más parámetros que ejemplos; el split aleatorio infla el R² (0,737 contra 0,381 real) por fuga entre pozos del mismo yacimiento; el dato de entrada cambia una vez por mes, un endpoint no aporta nada frente a una tabla batch |
 
-### Diez preguntas de entrevista sobre este proyecto
+### Quince preguntas de entrevista sobre este proyecto
 
 1. **¿Por qué bronze guarda todo como string?** Un valor mal formado, si bronze lo tipa, se
    pierde (`null`) antes de poder auditarlo. Tipar y descartar es de silver, que guarda lo
@@ -1463,9 +1687,841 @@ uv run pytest -q
 10. **¿Por qué el state de Terraform es local?** El entorno es efímero, una sola persona: un
     backend remoto pediría un bucket y una tabla de locks para nada.
 
+11. **¿Por qué gold corre con `dbt-spark method: session` y no con un servicio de Spark
+    aparte?** Porque `method: session` no abre ninguna conexión: reutiliza la SparkSession que
+    ya arma `build_spark()` en el mismo proceso, así que gold no suma ningún servicio nuevo,
+    solo un `spark-submit` más.
+
+12. **¿Por qué el job `gold_dbt` corre sobre Glue 5.0 (Spark) si dbt-athena no usa Spark para
+    nada?** Porque Python shell sigue clavado en Python 3.9 y dbt-core dejó de soportar esa
+    versión en la 1.11; Glue 5.0 trae Python 3.11, la misma versión que corre en local.
+
+13. **¿Cómo conviven las 13 particiones del topic `telemetria_pozo` con solo 13 pozos?** La
+    clave del mensaje es `idpozo`, así que cada pozo cae siempre en la misma partición y sus
+    lecturas llegan ordenadas; con 13 claves y 13 particiones el hash no reparte una por una,
+    pero eso no importa porque lo que se necesita es el orden por pozo, no un reparto parejo.
+
+14. **¿Por qué el split para entrenar el modelo es por yacimiento (`GroupKFold`) y no aleatorio
+    (`KFold`)?** Porque dos pozos del mismo yacimiento comparten la roca; con un split aleatorio
+    casi todo pozo de test tiene un vecino en train y el modelo "aprueba" por ubicación, no por
+    entender la completación. La diferencia medida es de 36 puntos de R² (0,737 vs 0,381).
+
+15. **¿Por qué `predecir.py` corre para los 3.825 pozos no convencionales y no solo para los 351
+    usados en el entrenamiento?** Porque el caso de uso real es predecir para un pozo recién
+    fracturado que todavía no cumplió el año de producción; `prod_pet_12m_real` queda nula en
+    esos y con valor en los que sí lo cumplieron, lo que permite medir con el tiempo cuánto se
+    equivocó el modelo.
+
 ---
 
-## 10. Glosario
+## 10. Sesión 9 — Reservas y el parser de XLSX
+
+Esta sesión sigue `pipelines/reservas/parser.py` y `bronze_load.py`: el primer bronze del
+repo que no usa Spark.
+
+### El encabezado jerárquico: por qué no alcanza con "leer la fila 7"
+
+El Excel de reservas no es una tabla: es un cuadro de doble entrada con cuatro niveles de
+encabezado fusionados (tipo de recurso, categoría, certeza, fluido) sobre cinco columnas de
+identificación (docstring, `parser.py` líneas 1-9). El parser no ubica esas filas por posición
+fija, sino por vocabulario: cada nivel tiene su propio diccionario cerrado que además traduce
+el rótulo crudo a un valor limpio:
+
+```python
+# pipelines/reservas/parser.py líneas 56-63
+FLUIDOS = {"PET": "petroleo", "GAS": "gas"}
+TIPOS_RECURSO = {"CONVENCIONAL": "convencional", "NO CONVENCIONAL": "no_convencional"}
+CATEGORIAS = {"RESERVAS": "reservas", "RECURSOS CONTINGENTES": "recursos_contingentes"}
+CERTEZAS = {"COMPROBADAS": "comprobadas", "PROBABLES": "probables", "POSIBLES": "posibles"}
+
+# Los recursos contingentes no se subdividen en certeza. Se marca con un valor y no con
+# vacio porque `certeza` es parte de la clave primaria, y una clave con nulos no es clave.
+SIN_CERTEZA = "no_aplica"
+```
+
+`find_header_row` busca la fila que trae `OPERADOR` (da los nombres de columnas de
+identificación); `find_label_rows` recorre hacia arriba desde ahí buscando, fila por fila, qué
+vocabulario aparece — sin asumir una distancia fija, porque entre 2020 y 2021-2024 cambia la
+cantidad de filas de título del archivo. `read_layout` arma, por cada columna que no sea de
+identificación, un `ValueColumn` con los cuatro niveles ya traducidos; el bloque
+`CONVENCIONAL + NO CONVENCIONAL` se descarta porque no matchea contra `TIPOS_RECURSO` — es la
+suma de los otros dos bloques, un total derivable que rompería la unicidad de la clave si se
+guardara.
+
+### Rangos fusionados: propagar, pero solo hacia la derecha
+
+Se usa **openpyxl**, que deja el valor real solo en la celda superior-izquierda de un rango
+fusionado; el resto son `None`. `expand_merges` los propaga a mano:
+
+```python
+# pipelines/reservas/parser.py líneas 141-155
+def expand_merges(sheet: Worksheet) -> dict[tuple[int, int], Any]:
+    """Valores de los rangos fusionados propagados hacia la derecha (no hacia abajo).
+
+    openpyxl deja el valor solo en la celda de arriba a la izquierda del rango. Se propaga
+    a lo ancho porque un rotulo fusionado horizontalmente encabeza todas esas columnas;
+    no se propaga a lo alto porque un rango vertical (RECURSOS CONTINGENTES ocupa la fila
+    de categoria y la de certeza) significa que ese bloque no se subdivide, no que la
+    subdivision se llame igual que el bloque.
+    """
+    valores: dict[tuple[int, int], Any] = {}
+    for rango in sheet.merged_cells.ranges:
+        origen = sheet.cell(row=rango.min_row, column=rango.min_col).value
+        for column in range(rango.min_col, rango.max_col + 1):
+            valores[(rango.min_row, column)] = origen
+    return valores
+```
+
+El bucle interno solo recorre columnas de la misma fila (`rango.min_row`): nunca hay un bucle
+sobre filas. `RECURSOS CONTINGENTES` es justo el caso vertical: ocupa a la vez la fila de
+categoría y la de certeza, y eso significa "sin subdivisión de certeza", no "la certeza se
+llama igual". Por eso, cuando `read_layout` busca la certeza de esas columnas y no encuentra
+ningún valor de `CERTEZAS`, cae al `SIN_CERTEZA` de arriba.
+
+### Del cuadro ancho a la fila larga
+
+El Excel trae hasta 24 columnas de valor por fila (yacimiento/operador); el parser emite una
+fila por **celda de valor individual**, con columnas fijas (`parser.py` líneas 29-43:
+`operador, cuenca, provincia, concesion, yacimiento, hoja, tipo_recurso, categoria, certeza,
+fluido, unidad, valor, anio_corte`):
+
+```python
+# pipelines/reservas/parser.py líneas 265-290 (resumido)
+def parse_sheet(grid: Grid, hoja: str, anio_corte: int) -> ParseResult:
+    """Filas largas de una hoja: una por celda de valor del cuadro."""
+    layout = read_layout(grid)
+    for row in range(layout.header_row + 1, grid.max_row + 1):
+        identity = {name: text(grid.value(row, col)) for name, col in layout.identity.items()}
+        if is_empty_row(identity) or is_total_row(identity):
+            continue
+        for value in layout.values:
+            result.rows.append({
+                **identity, "hoja": hoja,
+                "tipo_recurso": value.tipo_recurso, "categoria": value.categoria,
+                "certeza": value.certeza, "fluido": value.fluido, "unidad": value.unidad,
+                "valor": text(grid.value(row, value.column)), "anio_corte": str(anio_corte),
+            })
+    return result
+```
+
+Una fila ancha con 16 celdas de dato reales (8 convencional + 8 no convencional, sin el bloque
+derivado) se convierte en 16 filas largas. Es la forma que después se consulta con `GROUP BY
+certeza` sin conocer de antemano las 24 columnas del Excel. `is_total_row` descarta filas
+`TOTAL`/`TOTALES`/`TOTAL GENERAL` (la suma de la columna, no un yacimiento). Por encima están
+`parse_bytes` (recorre las hojas del workbook), `parse_file` y `parse_zip`/`xlsx_from_zip`
+(abren el ZIP de landing y extraen el único XLSX que contiene).
+
+### Escritura a Iceberg con pyiceberg, sin Spark
+
+El docstring de `bronze_load.py` explica el porqué: bronze de reservas mueve un ZIP de 400 KB,
+no cientos de MB — levantar una JVM de varios GB para eso sería desperdicio. Se escribe con
+**pyiceberg** contra el mismo catálogo que usa Spark (REST en local, Glue en AWS):
+
+```python
+# pipelines/reservas/bronze_load.py líneas 71-83
+def bronze_schema() -> Schema:
+    """Todo string salvo las dos marcas de tiempo: bronze no tipa (lo hace silver)."""
+    campos = [
+        NestedField(indice, nombre, StringType(), required=False)
+        for indice, nombre in enumerate(LONG_COLUMNS, start=1)
+    ]
+    ...
+    return Schema(*campos)
+```
+
+A diferencia de Spark, donde el esquema Iceberg se infiere del DataFrame, pyiceberg no tiene un
+motor de ejecución detrás que asigne `field_id`: cada `NestedField` lo enumera el propio código.
+El particionado usa la API de `pyiceberg.partitioning` (una partición por `_resource_id`, igual
+que el bronze de Spark), y la escritura reemplaza `spark.writeTo` por:
+
+```python
+# pipelines/reservas/bronze_load.py líneas 230-253 (resumido)
+def write_partition(table: Table, rows, resource_id: str, replace: bool) -> None:
+    arrow = to_arrow(rows, table.schema().as_arrow())
+    if replace:
+        table.overwrite(arrow, overwrite_filter=EqualTo("_resource_id", resource_id))
+        return
+    table.append(arrow)
+```
+
+`to_arrow` convierte la lista de diccionarios Python a una tabla **pyarrow** con el esquema
+Arrow derivado del esquema Iceberg. `table.append()` agrega un recurso nuevo; `table.overwrite`
+con un `EqualTo` reemplaza solo la partición del recurso que cambió de sha256 — el equivalente
+explícito de `overwritePartitions()` de Spark, pero sin motor distribuido: todo el parseo y el
+armado de filas corre en un solo proceso Python, y pyiceberg solo escribe los Parquet y el
+snapshot.
+
+El resto del hilo de ejecución reutiliza piezas ya conocidas: `read_manifest` usa el mismo
+`Manifest`/SQLAlchemy de la CLI de ingesta (no JDBC, porque este módulo sí trae el paquete
+completo), `loaded_sha256` hace con `scan().to_arrow()` y `group_by` lo que Spark hace con
+`groupBy().agg(F.max(...))`, y `with_lineage` agrega las mismas seis columnas de linaje que el
+bronze de Spark. Después, el DAG `reservas_mensual` encadena `ingesta >> bronze >> silver`,
+donde `silver` es el job de Spark de siempre — silver no sabe ni le importa que bronze se haya
+escrito con pyiceberg.
+
+### Qué correr
+
+```powershell
+podman-compose -f infra\docker\compose.yaml --profile core up -d
+uv run ingest run --dataset reservas --only 2024
+uv run python -m pipelines.reservas.bronze_load
+uv run python scripts/check_lake.py --namespace bronze
+scripts\spark-submit.ps1 pipelines/spark_jobs/silver_load.py --contract reservas
+uv run pytest tests/reservas -q
+```
+
+### Qué tenés que poder explicar al terminar
+
+- Por qué `expand_merges` propaga los rangos fusionados solo hacia la derecha y nunca hacia
+  abajo, con el ejemplo de `RECURSOS CONTINGENTES`.
+- Qué es la forma "larga" de una fila y por qué una sola fila del Excel se convierte en 16
+  filas de bronze.
+- Por qué este bronze usa pyiceberg en vez de `spark-submit`, y qué tuvo que reimplementar
+  (idempotencia por sha256, linaje, particionado) para no perder ninguna garantía del bronze
+  de Spark.
+- Por qué `certeza` no puede quedar vacía en los recursos contingentes: el motivo de SQL
+  (clave con nulos) y el motivo concreto de Spark (`count_distinct` descarta filas con algún
+  componente nulo).
+
+---
+
+## 11. Sesión 10 — Gold con dbt
+
+Esta es la sesión más larga de las cuatro nuevas: `pipelines/dbt/` entero.
+
+### Qué es dbt, en los términos de este repo
+
+**dbt** (data build tool) convierte SQL en un pipeline: cada `.sql` en `models/` es un
+`SELECT` que dbt envuelve en un `CREATE TABLE AS`, resuelve en qué orden correr según qué
+modelo lee a cuál, corre los tests declarados en YAML y arma un grafo de dependencias — sin
+que nadie escriba el orden a mano. Bronze y silver son jobs de PySpark función por función
+(sesiones 3-4); gold es una decena de modelos dimensionales con dependencias cruzadas, y el ADR
+0009 es explícito: escribir eso como otro job de PySpark "significaría reimplementar a mano el
+grafo de dependencias, el orden de ejecución, la documentación y los tests: exactamente lo que
+dbt hace y hace bien".
+
+### `ref()` y `source()`
+
+`source()` apunta a una tabla que dbt no construye — acá, las tablas silver, declaradas en
+`sources.yml` con su columna de linaje:
+
+```yaml
+# pipelines/dbt/models/sources.yml líneas 13-24 (resumido)
+sources:
+  - name: silver
+    schema: silver
+    loaded_at_field: _silver_loaded_at
+    tables:
+      - name: produccion_pozo
+        description: "Producción mensual declarada por pozo (DDJJ), 2006 en adelante."
+```
+
+`ref()` apunta a otro modelo de dbt:
+
+```sql
+-- pipelines/dbt/models/hechos/fact_produccion_mensual.sql líneas 39-43
+con_pozo as (
+    select p.*, d.pozo_key
+    from produccion p
+    left join {{ ref('dim_pozo') }} d
+```
+
+`source()` marca dónde termina el territorio de dbt; `ref()` es lo que arma el grafo — dbt lee
+todos los `ref()` para saber que `fact_produccion_mensual` corre después de `dim_pozo`, sin que
+nadie lo declare aparte.
+
+### `run_dbt.py` y `profiles.yml`: dbt adentro de la SparkSession
+
+La pieza más particular de la sesión. dbt normalmente abre su propia conexión al motor; acá
+corre **dentro** del mismo proceso que ya levantó Spark para bronze y silver:
+
+```python
+# pipelines/dbt/run_dbt.py líneas 1-13 (docstring)
+"""Lanza dbt sobre la misma SparkSession que usan bronze y silver.
+
+dbt-spark con `method: session` no arma la sesión: cada consulta hace
+`SparkSession.builder.getOrCreate()` y usa la que encuentre. Este lanzador la crea antes con
+`build_spark`, así gold escribe en el catálogo `lake` con exactamente la misma configuración
+que las capas de abajo.
+"""
+```
+
+```python
+# pipelines/dbt/run_dbt.py líneas 41-51
+def main(argv: list[str]) -> int:
+    configure_environment()
+    from dbt.cli.main import dbtRunner  # se importa después: dbt lee estas variables al importarse
+
+    spark = build_spark("dbt_gold")
+    try:
+        result = dbtRunner().invoke(argv)
+    finally:
+        spark.stop()
+    return 0 if result.success else 1
+```
+
+`build_spark` es la misma función de `session.py` que arma bronze y silver. El truco es
+`method: session` del adaptador:
+
+```yaml
+# pipelines/dbt/profiles.yml líneas 12-17
+local:
+  type: spark
+  method: session
+  host: localhost
+  schema: gold
+  threads: 1  # un solo driver de Spark de 4 GB: los modelos van de a uno
+```
+
+`method: session` le dice al adaptador que no abra ninguna conexión propia: cada consulta que
+dbt manda hace `getOrCreate()`, y como Python solo tiene una JVM por proceso, eso devuelve la
+sesión que `run_dbt.py` ya creó. dbt nunca se entera de que existe MinIO o un catálogo REST:
+escribe SQL contra `lake.gold.dim_pozo` y la sesión ya sabe traducirlo a Iceberg + S3. En AWS el
+mismo `profiles.yml` define un target `aws` con `type: athena`, que no necesita ningún motor
+propio: manda el SQL compilado directo a Athena, sobre las mismas tablas del Glue Data Catalog
+(invocado por `pipelines/aws/gold_dbt_job.py`, sesión 6). ADR 0002 queda modificado en su mitad
+local: DuckDB deja de ser el motor de gold y sigue solo para consultas exploratorias.
+
+### Modelo por modelo
+
+`dbt_project.yml` fija la materialización — cómo dbt persiste el `SELECT` — en `table` para
+todo gold (nunca vista ni incremental: cada corrida reconstruye el modelo entero), y apaga la
+carpeta `monitoreo` fuera de local (`+enabled: "{{ target.name == 'local' }}"`), porque sus
+modelos leen streaming y ML, que en AWS no existen.
+
+**`dim_pozo`** es una **SCD tipo 2** (slowly changing dimension: en vez de sobrescribir un
+atributo cuando cambia, abre una fila nueva con su propia ventana de vigencia), reconstruida
+de una pasada con ventanas y no con `dbt snapshot` (los 21 años de historia ya están en silver,
+no llegan de a uno). CTE por CTE:
+
+```sql
+-- pipelines/dbt/models/dimensiones/dim_pozo.sql líneas 35-50 (resumido)
+huella as (
+    select *, concat_ws('|', coalesce(empresa,''), coalesce(tipoestado,''), ...) as atributos
+    from historia
+),
+cambios as (
+    select *, case
+        when lag(atributos) over (partition by idpozo order by mes_declarado) is null then 1
+        when lag(atributos) over (partition by idpozo order by mes_declarado) <> atributos then 1
+        else 0
+    end as abre_tramo
+    from huella
+),
+tramos as (
+    select *, sum(abre_tramo) over (
+        partition by idpozo order by mes_declarado
+        rows between unbounded preceding and current row
+    ) as tramo
+    from cambios
+),
+```
+
+`historia` trae un mes-pozo por fila con los ocho atributos rastreados. `huella` los junta en
+un string (`coalesce` porque en SQL `null <> 'X'` no da verdadero: sin él, un atributo que pasa
+a `NULL` no se detectaría como cambio). `cambios` usa `lag()` para marcar con 1 el primer mes de
+cada pozo o cualquier mes cuya huella difiera de la anterior. `tramos` es la suma acumulada de
+esas aperturas — la manera estándar de numerar "rachas" sin `GROUP BY`. `resumen` colapsa cada
+tramo con `min`/`max(mes_declarado)` (rango de vigencia) y `max_by(sigla, mes_declarado)` para
+los atributos no rastreados. `vigencias` marca `es_vigente` en el tramo más alto de cada pozo.
+El `select` final arma `pozo_key` (hash de `idpozo` + `vigente_desde`) y cierra `vigente_hasta`
+en `NULL` si el tramo es el vigente, o en el último día del último mes si ya cerró.
+
+**`fact_produccion_mensual`** cuelga cada mes del tramo de `dim_pozo` que estaba vigente en ese
+mes, con un join por rango de fechas:
+
+```sql
+-- pipelines/dbt/models/hechos/fact_produccion_mensual.sql líneas 35-44
+con_pozo as (
+    select p.*, d.pozo_key
+    from produccion p
+    left join {{ ref('dim_pozo') }} d
+        on p.idpozo = d.idpozo
+        and p.mes_declarado >= d.vigente_desde
+        and (d.vigente_hasta is null or p.mes_declarado <= d.vigente_hasta)
+),
+```
+
+Un mes de producción de 2014 se cuelga del tramo que describía al pozo en 2014, no del estado
+actual. El modelo se materializa completo y no incremental porque silver reescribe particiones
+enteras cuando un recurso cambia de sha256 (rectificativas de años viejos incluidas): un
+incremental por año nuevo perdería esas correcciones.
+
+**El mart** (`mart_pozo_completacion_produccion.sql`) es la tabla de features que consume ML:
+un pozo fracturado por fila, con el diseño de la completación de un lado y lo que produjo del
+otro. `ultima_fractura` se queda con la declaración más reciente por pozo (`row_number() over
+(partition by idpozo order by fecha_inicio_fractura desc, ...)`); `acumulados` suma la
+producción de los primeros 3/6/12 meses usando `meses_desde_primera_produccion`, la misma
+columna que arma `fact_produccion_mensual` con la macro `meses_entre()`.
+
+### Tests: declarativos y singulares
+
+Los declarativos van en los `.yml`, como `not_null`/`unique`/`accepted_values`/`relationships`
+sobre una columna. El más ilustrativo de integridad referencial real:
+
+```yaml
+# pipelines/dbt/models/hechos/fact_produccion_mensual.yml líneas 26-33
+- name: fecha_key
+  data_tests:
+    - not_null
+    - relationships:
+        arguments: { to: ref('dim_fecha'), field: fecha_key }
+```
+
+Ese `relationships` fue el que encontró tres fechas futuras mal cargadas en fractura (día y mes
+invertidos en el Adjunto IV) — por eso `dim_fecha` genera su calendario hasta fin del año en
+curso y no hasta el mes de hoy. Los singulares son consultas SQL sueltas en `tests/`: el test
+pasa si la consulta **no devuelve filas**. El más interesante prueba una invariante de la SCD2
+misma — que dos tramos del mismo pozo nunca estén vigentes al mismo tiempo (si se solaparan, el
+join por rango duplicaría producción):
+
+```sql
+-- pipelines/dbt/tests/dim_pozo_vigencias_sin_solapamiento.sql líneas 15-23
+select a.idpozo, a.vigente_desde as desde_a, b.vigente_desde as desde_b
+from tramos a
+join tramos b
+    on a.idpozo = b.idpozo
+    and a.vigente_desde < b.vigente_desde
+    and b.vigente_desde <= a.vigente_hasta
+```
+
+Otro reconcilia gold contra silver sumando producción de 2024 en las dos capas y comparando la
+diferencia contra un umbral, y otro prueba unicidad de la clave compuesta `(idpozo, fecha_key)`
+de `fact_produccion_mensual` con `group by ... having count(*) > 1` — la unicidad de una clave
+compuesta no entra en un `data_tests` de columna, por eso necesita un singular.
+
+El `.yml` de `fact_reservas` es, además, la evidencia documental de `certeza = no_aplica` de la
+sesión 9: `accepted_values` la lista junto con `comprobadas`/`probables`/`posibles`, con la
+descripción "'no_aplica' en los recursos contingentes, que la planilla no subdivide".
+
+### Macros de dialecto para Athena
+
+Athena corre sobre Trino, que comparte casi todo el SQL con Spark salvo media docena de
+funciones. `macros/dialecto.sql` las resuelve con `adapter.dispatch` (dbt elige qué
+implementación usar según el adaptador activo):
+
+```sql
+-- pipelines/dbt/macros/dialecto.sql líneas 14-26
+{% macro md5(expresion) -%}
+    {{ return(adapter.dispatch('md5', 'gold')(expresion)) }}
+{%- endmacro %}
+
+{% macro default__md5(expresion) -%}
+    md5({{ expresion }})
+{%- endmacro %}
+
+{% macro athena__md5(expresion) -%}
+    {# En Trino md5 toma y devuelve varbinary; el cast es porque no toda clave es texto. #}
+    lower(to_hex(md5(to_utf8(cast({{ expresion }} as varchar)))))
+{%- endmacro %}
+```
+
+Y `serie_de_meses` (la que arma el calendario de `dim_fecha`): en Spark es `explode(sequence(...))`
+en el `SELECT`; en Trino el equivalente es `unnest`, que va en el `FROM` y no en el `SELECT`, con
+el intervalo entre comillas. Cada macro se llama igual que la función de Spark, así el SQL de
+los modelos no cambia según el destino — ningún modelo llama `adapter.dispatch` directamente.
+
+### `dbt source freshness`
+
+`sources.yml` declara, por fuente, `loaded_at_field` y dos umbrales de frescura — un chequeo de
+**actualidad**, no de estructura: silver puede estar perfectamente tipada y vacía de novedades
+porque el portal dejó de publicar, y eso el contrato de silver no lo detecta:
+
+```yaml
+# pipelines/dbt/models/sources.yml líneas 23-29
+- name: produccion_pozo
+  freshness:
+    warn_after: {count: 35, period: day}
+    error_after: {count: 45, period: day}
+```
+
+35/45 días para lo mensual, 2/5 para `fractura` (se republica todos los días), 400/460 para
+`reservas` (publicación anual). Las fuentes sin cadencia real (streaming, `dq_runs`) se declaran
+igual pero sin bloque `freshness`: nunca se chequean. Se retoma en la sesión 12, con el DAG que
+corre `dbt source freshness`.
+
+### Qué correr
+
+```powershell
+podman-compose -f infra\docker\compose.yaml --profile core up -d
+scripts\dbt.ps1 build
+scripts\dbt.ps1 test --select fact_produccion_mensual
+scripts\dbt.ps1 source freshness
+uv run python scripts/check_lake.py --namespace gold
+```
+
+### Qué tenés que poder explicar al terminar
+
+- Qué significa `method: session` en `profiles.yml` y por qué eso le permite a dbt escribir en
+  el mismo catálogo Iceberg que bronze y silver sin abrir ninguna conexión propia.
+- Cómo arma `dim_pozo` sus tramos de vigencia sin usar `dbt snapshot`, y por qué acá esa
+  alternativa no aplica.
+- Qué prueba el join por rango de `fact_produccion_mensual` contra `dim_pozo`, y qué test
+  evitaría que dos tramos del mismo pozo se solapen.
+- La diferencia entre un test declarativo y uno singular, con un ejemplo de cada uno de este
+  proyecto.
+
+---
+
+## 12. Sesión 11 — Streaming
+
+Esta sesión sigue `pipelines/streaming/replay_3w.py` (productor) y
+`pipelines/streaming/consume_telemetria.py` (consumidor).
+
+### Kafka en dos frases
+
+El repo levanta un único broker (`apache/kafka:4.1.2`, modo KRaft: broker y controller en el
+mismo proceso, sin Zookeeper). El **topic** real es `telemetria_pozo`, con 13 **particiones**
+("los 13 equipos concurrentes que reporta el RTIC", `compose.yaml` líneas 272-274). Cada
+mensaje lleva como clave el `idpozo`, así que todas las lecturas de un mismo pozo caen siempre
+en la misma partición y llegan ordenadas — con 13 claves y 13 particiones el hash no reparte
+una por una, pero lo que importa es el orden por pozo, no el reparto parejo. El **offset** es
+la posición de un mensaje dentro de una partición: `consume_telemetria.py` fija
+`startingOffsets: "earliest"`, que solo aplica cuando no hay checkpoint. Structured Streaming
+no configura un `group.id` explícito; cada query tiene su propio checkpoint en
+`s3a://lakehouse/checkpoints/<query>/`, que cumple el rol de un **consumer group**: recordar
+hasta dónde leyó cada consumidor independiente.
+
+### El productor: intercalado, tardíos, idempotencia
+
+**Intercalado**: la fuente de eventos no procesa un archivo de 3W a la vez. `main()` arma un
+único flujo con `heapq.merge(*[leer(...) for archivo in archivos], key=lambda l: l[0])`: cada
+archivo (un pozo) entrega lecturas ordenadas por su offset relativo al inicio, y `heapq.merge`
+los intercala por ese offset — los N pozos "avanzan juntos como si midieran al mismo tiempo".
+
+**Tardíos**: `PlanTardios` (`eventos.py`) modela el corte del enlace satelital: una fracción de
+eventos (`--late-fraction`, 5% por defecto) se retiene y se emite con demora, entre
+`--late-min` (30 s) y `--late-max` (120 s) de tiempo de evento:
+
+```python
+# pipelines/streaming/eventos.py líneas 144-152
+def demora_tardia(rng: random.Random, plan: PlanTardios) -> float | None:
+    """Segundos que se retiene esta lectura, o None si sale al instante."""
+    if plan.fraccion <= 0 or rng.random() >= plan.fraccion:
+        return None
+    return rng.uniform(plan.minimo_s, plan.maximo_s)
+```
+
+El evento retenido va a un heap `pendientes` y se publica más tarde, cuando el offset de emisión
+ya superó su vencimiento — así llega después de eventos con tiempo de evento mayor, que es
+justo lo que tiene que tolerar el watermark. Existe únicamente para poder probarlo: sin datos
+tardíos, `withWatermark` nunca tendría nada que descartar ni tolerar.
+
+**Idempotencia**, a nivel del protocolo Kafka (no la del sha256 de la ingesta):
+
+```python
+# pipelines/streaming/replay_3w.py líneas 238-243
+# enable.idempotence: sin esto, un reintento de librdkafka sobre un mensaje que el broker
+# ya escribio deja el evento duplicado en el topic. Con idempotencia el broker descarta el
+# reenvio, que es lo que hace que "eventos publicados == filas en bronze" se sostenga.
+producer = Producer({"bootstrap.servers": servidores, "linger.ms": 50, "enable.idempotence": True})
+```
+
+El broker asigna una secuencia por productor/partición y descarta un reenvío duplicado si el
+productor tuvo que reintentar tras un timeout.
+
+### El consumidor: `readStream`, watermark, ventanas, checkpoint
+
+```python
+# pipelines/streaming/consume_telemetria.py líneas 88-104 (resumido)
+def leer_eventos(spark: SparkSession, config: LakehouseConfig) -> DataFrame:
+    crudo = (
+        spark.readStream.format("kafka")
+        .option("kafka.bootstrap.servers", config.kafka_bootstrap_servers)
+        .option("subscribe", TOPIC)
+        .option("startingOffsets", "earliest")
+        .option("maxOffsetsPerTrigger", MAX_EVENTOS_POR_BATCH)
+        .load()
+    )
+    return crudo.select(F.from_json(F.col("value").cast("string"), esquema_evento()).alias("evento")).select("evento.*")
+```
+
+`maxOffsetsPerTrigger` (40.000) acota cuántos eventos entran por micro-batch: 13 pozos a 60x son
+~16.000 eventos por trigger de 20 s, el doble deja margen para recuperar atraso sin volver un
+solo batch enorme.
+
+```python
+# pipelines/streaming/consume_telemetria.py líneas 46-47, 118-121
+WATERMARK = "2 minutes"
+VENTANA = "1 minute"
+...
+eventos.withWatermark("event_time", WATERMARK).groupBy(F.window("event_time", VENTANA), "idpozo").agg(*agregaciones)
+```
+
+El **watermark** es sobre `event_time` (tiempo de evento, no de llegada), con umbral de 2
+minutos: Spark recuerda el máximo `event_time` visto y considera cerrada una ventana cuando ese
+máximo ya superó el fin de la ventana más el umbral; un evento más viejo que eso se descarta de
+la agregación. El valor sale del ADR 0011: "es el orden de magnitud de un corte de enlace
+satelital: cubre la reconexión típica sin obligar a Spark a mantener estado de las últimas
+horas". Las **ventanas** son de 1 minuto, tumbling (sin slide), agrupadas también por `idpozo`,
+con conteo y `avg`/`min`/`max` de los sensores clave más `max(class)` (si hubo algún evento
+anómalo etiquetado en el minuto).
+
+El **checkpoint** guarda, por query, los offsets de Kafka ya procesados y el estado de la
+agregación, en su propia carpeta de S3/MinIO (`checkpoints/<nombre>/`); al reiniciar, Spark
+retoma exactamente donde había quedado, sin reprocesar lo ya escrito.
+
+Las **dos queries**: `telemetria_bronze` escribe todos los eventos crudos a
+`lake.bronze.telemetria_pozo` sin filtrar nada (un evento tardío queda igual en bronze);
+`telemetria_silver_1min` escribe la agregación por ventana a
+`lake.silver.telemetria_pozo_1min`. Ambas leen del mismo topic con `leer_eventos()` invocado dos
+veces — dos lecturas independientes, no una compartida.
+
+### El problema del catálogo SQLite
+
+```python
+# pipelines/streaming/consume_telemetria.py líneas 193-198
+# El catalogo local es SQLite y acepta un solo escritor (ADR 0003): si los dos commits se
+# pisan, el que pierde recibe un SQLITE_BUSY que ni el busy_timeout puede reintentar, el
+# catalogo devuelve 500 y la query muere. Dos medidas para que no coincidan:
+#   - arrancar silver despues, porque el batch caro es el primero (el que recupera atraso);
+#   - un segundo mas de trigger, porque Spark alinea los micro-batches a multiplos
+#     absolutos del intervalo y con el mismo numero coincidirian siempre.
+```
+
+El catálogo REST local usa SQLite (ADR 0003), que acepta un único escritor. Con dos queries de
+streaming commiteando en paralelo, si dos commits coinciden, el que pierde recibe
+`SQLITE_BUSY`, el catálogo responde 500 e Iceberg lo traduce a una excepción que mata la query
+sin poder reintentar. Cuatro medidas: arrancar `silver` medio trigger después que `bronze`;
+triggers desincronizados (`bronze` cada N segundos, `silver` cada N+1); `maxOffsetsPerTrigger`
+acota el tamaño del primer batch tras un reinicio; y `busy_timeout=30000` en la URI JDBC del
+catálogo. Aun así, cuando se pisan, la conexión que pierde queda con la transacción abierta y
+el catálogo deja de aceptar escrituras hasta reiniciar el contenedor — lo primero que hay que
+mirar si un job empieza a fallar con 500 sin motivo. En AWS el catálogo es Glue y el problema no
+existe.
+
+### El experimento de reinicio
+
+Documentado con números reales en `docs/fuentes/telemetria_3w.md`. Una corrida de 10 minutos
+publicó 468.001 eventos, con 468.001 filas exactas en bronze y 0 descartados por watermark (la
+tolerancia real, `watermark + trigger × speed` ≈ 22 minutos de tiempo de evento a 60x, cubre los
+cortes simulados de 30-120 s). Una segunda corrida, con cortes largos (30-60 minutos de tiempo
+de evento) y el consumidor **matado con `podman kill` a mitad de camino** y vuelto a levantar,
+sumó 234.001 eventos más: bronze acumuló exactamente 702.002 filas entre las dos corridas, sin
+ningún duplicado, y 4.588 eventos quedaron fuera de la agregación de silver por el watermark —
+pero enteros en bronze, que es justamente para lo que sirve tener el crudo. El checkpoint
+retoma el offset donde estaba y no reprocesa lo ya escrito, ni siquiera tras un `kill` a mitad
+de un micro-batch.
+
+### Qué correr
+
+```powershell
+uv run python -m pipelines.streaming.fetch_3w --classes 0,2,7
+uv run python -m pipelines.streaming.pozo_map
+scripts\streaming-up.ps1
+scripts\streaming-demo.ps1 -Segundos 600 -Velocidad 60
+uv run python scripts/check_lake.py --namespace silver --table telemetria_pozo_1min
+```
+
+### Qué tenés que poder explicar al terminar
+
+- Por qué el productor rebasea el `event_time` en vez de mandar el timestamp original de cada
+  archivo de 3W, y qué pasaría con el watermark si no lo hiciera.
+- Cómo se calcula la tolerancia real a un evento tardío (`watermark + trigger × speed`) y por
+  qué un corte de 30-120 s no descarta nada a 60x pero uno de 30-60 minutos sí.
+- Qué significa que el catálogo SQLite acepte un solo escritor, y qué medidas toma el código
+  para que las dos queries no colisionen.
+- Por qué matar el consumidor con `podman kill` y volver a levantarlo no duplicó ni perdió
+  filas en bronze.
+
+---
+
+## 13. Sesión 12 — ML y monitoreo
+
+Esta sesión sigue `pipelines/ml/{datos,entrenar,predecir}.py`, el DAG `ml_mensual`, el DAG
+`monitoreo_diario` y `alertas.py`. Los modelos de dbt `salud_pipeline`/`calidad_por_corrida` ya
+se vieron en la sesión 10; acá se retoma solo `dbt source freshness` desde el lado del DAG.
+
+### `datos.py`: filtros, capping, target en log
+
+De 4.635 pozos fracturados en el mart, tres filtros dejan 351 para entrenar: solo `NO
+CONVENCIONAL` (en el convencional la fractura es una intervención sobre un pozo que ya
+producía, otra relación causal) y solo los que declararon los 12 meses completos (un pozo
+truncado enseñaría que el diseño produce poco cuando en realidad falta historia). **Capping**:
+dos columnas se recortan a un tope físico, sin descartar el pozo entero:
+
+```python
+# pipelines/ml/datos.py líneas 64-70
+TOPES = {"presion_maxima_psi": 20_000.0, "potencia_equipos_fractura_hp": 100_000.0}
+
+def aplicar_topes(pozos: pd.DataFrame) -> pd.DataFrame:
+    """Recorta presión y potencia en sus máximos físicos (docs/fuentes/fractura.md)."""
+    recortado = pozos.copy()
+    for columna, tope in TOPES.items():
+        recortado[columna] = recortado[columna].astype(float).clip(upper=tope)
+    return recortado
+```
+
+El contrato de silver ya manda a cuarentena lo que supera esos rangos, pero el mart puede traer
+valores cargados antes de esa regla (hasta 209.640 psi en algunas filas, errores de unidad, no
+pozos monstruosos). El **target** (`prod_pet_12m`) se modela en `log1p`:
+
+```python
+# pipelines/ml/datos.py líneas 22-25
+# El objetivo es el acumulado de petroleo de los primeros 12 meses. Se modela en log1p porque
+# la distribucion va de 0 a 155.000 m3: en escala original el error de los pozos grandes se
+# come al de todos los demas.
+```
+
+`log1p` (no `log`) porque el target puede ser 0 (114 de 351 pozos acumularon cero). Al volver a
+escala original, `a_escala_original` acota con un `TECHO_M3` de cordura: un modelo que se
+desmadre en escala log daría un `expm1` infinito. Tres *features* derivadas (arena por metro,
+agua por etapa, etapas por metro) suben el R² fuera de muestra de 0,304 a 0,337.
+
+### `entrenar.py`: `GroupKFold`, baselines, HGB, SHAP, MLflow
+
+```python
+# pipelines/ml/entrenar.py líneas 1-14 (docstring, resumido)
+# Como se valida: GroupKFold sobre el yacimiento. Dos pozos del mismo yacimiento comparten la
+# roca; si uno queda en train y su vecino en test, el modelo aprueba por saber donde esta el
+# pozo y no por entender la completacion. Con split aleatorio el R2 sube de 0,38 a 0,74: esa
+# diferencia es exactamente la fuga que el split por grupo evita medir de mas.
+```
+
+**`GroupKFold`** garantiza que todas las filas de un mismo grupo (`areayacimiento`, no el pozo)
+caigan del mismo lado del split. Se compara contra dos **baselines** honestos: la mediana del
+train (`DummyRegressor`) y una regresión lineal sobre las mismas features (que da un R²
+catastrófico, −11,59 en log, por extrapolar fuera de rango). El modelo real es
+**`HistGradientBoostingRegressor`** (boosting de árboles de scikit-learn), con categóricas
+codificadas por `OrdinalEncoder` (un entero por categoría, no one-hot: un árbol parte por
+umbral y no necesita la expansión) y una grilla de seis combinaciones elegida a mano, no por
+`GridSearchCV` ("con 351 pozos una grilla grande solo sirve para sobreajustar la validación").
+
+**SHAP** (SHapley Additive exPlanations: valores de teoría de juegos que reparten la predicción
+entre las features que la explican) se calcula exacto para árboles con `shap.TreeExplainer`, sin
+muestreo, y se guarda como CSV de importancia media y un `summary_plot` en PNG.
+
+**MLflow** trackea todo dentro de un `with mlflow.start_run()`: parámetros (cantidad de pozos,
+yacimientos, folds), métricas de cada baseline y del HGB, y artefactos (CSVs, SHAP, el PNG, y el
+`Pipeline` completo de scikit-learn con `mlflow.sklearn.log_model`). El **alias de modelo** — la
+forma en que MLflow 3 reemplaza los viejos *stages* (`Staging`/`Production`) por una etiqueta de
+texto libre — se mueve solo si el modelo superó al baseline:
+
+```python
+# pipelines/ml/entrenar.py líneas 266-279 (resumido)
+def registrar_champion(uri_modelo: str, mejora: bool) -> str | None:
+    version = mlflow.register_model(uri_modelo, registro.MODELO).version
+    if not mejora:
+        logger.warning("el modelo no supera al baseline: se registra v%s sin alias", version)
+        return version
+    mlflow.MlflowClient().set_registered_model_alias(registro.MODELO, registro.ALIAS, version)
+    return version
+```
+
+```python
+# pipelines/ml/registro.py líneas 13-17, 34-36
+MODELO = "completacion_produccion_12m"
+# El alias reemplaza a los stages, que MLflow 3 ya no usa: `models:/<modelo>@champion` siempre
+# apunta a la ultima version que supero al baseline.
+ALIAS = "champion"
+```
+
+Toda versión entrenada queda registrada, pero solo `champion` sirve para inferencia: un modelo
+peor jamás llega a producción por el solo hecho de haberse entrenado, y `entrenar.py` devuelve
+código 1 si no hubo mejora, lo que hace fallar la tarea y evita que `predecir` corra con un
+modelo peor.
+
+### `predecir.py`: inferencia batch a Iceberg
+
+El modelo se carga siempre por alias, nunca por versión: `mlflow.sklearn.load_model(registro.uri_champion())`
+resuelve a `models:/completacion_produccion_12m@champion`. Corre sobre los 3.825 pozos no
+convencionales (no solo los 351 de entrenamiento), porque el caso de uso real es el pozo que
+todavía no cumplió el año — `prod_pet_12m_real` queda nulo en esos y con valor en los que sí,
+lo que permite medir la deriva del modelo con el tiempo. La escritura usa pyiceberg, igual que
+reservas:
+
+```python
+# pipelines/ml/predecir.py líneas 87-105 (resumido)
+def escribir(tabla: Table, filas: pd.DataFrame) -> None:
+    """Reemplaza el contenido completo de la tabla por la corrida actual."""
+    arrow = pa.Table.from_pandas(filas, schema=tabla.schema().as_arrow(), preserve_index=False)
+    if tabla.current_snapshot() is None:
+        tabla.append(arrow)
+        return
+    tabla.overwrite(arrow)
+```
+
+`tabla.overwrite(arrow)` reemplaza el contenido entero en un solo snapshot atómico: nunca hay
+un momento en que la tabla se lea vacía.
+
+### El DAG `ml_mensual`
+
+```python
+# orchestration/dags/ml_mensual.py líneas 30-49 (resumido)
+MLFLOW = "MLFLOW_TRACKING_URI=http://mlflow:5000"
+...
+entrenar = runner_task("entrenar", f"{MLFLOW} python3 -m pipelines.ml.entrenar")
+predecir = runner_task("predecir", f"{MLFLOW} python3 -m pipelines.ml.predecir")
+entrenar >> predecir
+```
+
+Corre el día 2 a las 7, veinticinco horas después de `gold_mensual`. `MLFLOW_TRACKING_URI` no
+está en `FORWARDED_ENV` (la lista compartida por todos los DAGs); en vez de tocar esa lista para
+un solo DAG, la variable se antepone al comando (`VAR=valor comando`, válido en el `bash -c` con
+el que arranca el runner). `python3` pelado y no `spark-submit`: 351 pozos en pandas no
+necesitan una JVM, el runner se usa solo porque ya trae el volumen con las dependencias.
+
+### `dbt source freshness` y el DAG `monitoreo_diario`
+
+```python
+# orchestration/dags/monitoreo_diario.py líneas 43-52 (resumido)
+salud = runner_task("salud", f"{SPARK_SUBMIT} /app/pipelines/dbt/run_dbt.py build --select monitoreo")
+frescura = runner_task("frescura", f"{SPARK_SUBMIT} /app/pipelines/dbt/run_dbt.py source freshness")
+salud >> frescura
+```
+
+`salud` reconstruye `gold.salud_pipeline`/`gold.calidad_por_corrida` (sesión 10) y corre primero
+a propósito: si `frescura` fuera primero y fallara, la tarea que deja la foto del pipeline
+quedaría en `skipped` justo el día que hace falta mirarla. `frescura` corre `dbt source
+freshness` y termina con código distinto de cero si alguna fuente pasó su `error_after` — es la
+tarea que hace fallar el DAG. Con `retries: 0`: si una fuente está vieja, volver a preguntar da
+lo mismo.
+
+### `alertas.py`: el único punto de aviso del repo
+
+```python
+# orchestration/dags/alertas.py (completo, resumido)
+def avisar_falla(context) -> None:
+    """Deja en el log qué falló y el link para ir a verlo."""
+    tarea = context["task_instance"]
+    corrida = context["dag_run"]
+    url = f"{BASE_URL}/dags/{tarea.dag_id}/runs/{corrida.run_id}/tasks/{tarea.task_id}"
+    logger.error("ALERTA | dag=%s | tarea=%s | corrida=%s | intento=%s | %s",
+                 tarea.dag_id, tarea.task_id, corrida.run_id, tarea.try_number, url)
+```
+
+Se engancha una sola vez, en el `default_args` de cada DAG (`on_failure_callback=avisar_falla`),
+así cualquier tarea que falle —ingesta, bronze, silver, dbt, ML— pasa por acá. Hoy solo deja una
+línea de log con el link directo a la tarea fallada en la UI de Airflow; es un punto de
+extensión único: el día que haya un canal real (correo, Slack, PagerDuty), se conecta acá y en
+ningún otro lado.
+
+### Qué correr
+
+```powershell
+podman-compose -f infra\docker\compose.yaml --profile core --profile mlflow up -d
+uv run python -m pipelines.ml.entrenar
+uv run python -m pipelines.ml.predecir --dry-run
+cd pipelines\dbt
+uv run python run_dbt.py build --select monitoreo
+uv run python run_dbt.py source freshness
+```
+
+### Qué tenés que poder explicar al terminar
+
+- Por qué `GroupKFold` agrupa por `areayacimiento` y no por pozo, y qué pasa con el R² con un
+  split aleatorio.
+- Qué es un alias de modelo en el registry de MLflow, y por qué `predecir.py` nunca recibe un
+  número de versión como parámetro.
+- Por qué el target se modela en `log1p` y qué rol cumple `TECHO_M3` al volver a la escala
+  original.
+- La diferencia entre `warn_after` y `error_after` en `dbt source freshness`.
+- Por qué `monitoreo_diario` corre `salud` antes que `frescura` aunque `frescura` sea la tarea
+  que puede fallar el DAG.
+
+---
+
+## 14. Glosario
 
 - **SparkSession**: punto de entrada único a Spark; arranca la JVM y expone la API para leer,
   transformar y escribir datos.
@@ -1510,3 +2566,39 @@ uv run pytest -q
 - **Ventana (Window function)**: cálculo SQL "por grupo" sin colapsar filas, a diferencia de
   `GROUP BY`.
 - **Cuarentena**: tabla donde se guardan las filas rechazadas por un check blando, con motivo.
+- **dbt model**: un `.sql` en `models/` que dbt convierte en una tabla o vista; el `SELECT` es
+  todo lo que hay que escribir, dbt resuelve el orden y la materialización.
+- **`ref()`**: función de dbt que apunta a otro modelo; arma el grafo de dependencias sin que
+  nadie declare el orden a mano.
+- **`source()`**: función de dbt que apunta a una tabla que dbt no construye (acá, silver);
+  marca dónde termina el territorio de dbt.
+- **Macro (dbt)**: función reutilizable en Jinja/SQL; en este repo, además, el mecanismo con el
+  que se resuelven diferencias de dialecto entre Spark y Athena (`adapter.dispatch`).
+- **Materialización**: cómo dbt persiste un modelo (`table`, `view`, incremental); acá, siempre
+  `table`.
+- **SCD tipo 2 (slowly changing dimension)**: dimensión que guarda historia abriendo una fila
+  nueva con su propia ventana de vigencia en vez de sobrescribir el atributo que cambió.
+- **openpyxl**: librería Python para leer/escribir XLSX; solo la celda superior-izquierda de un
+  rango fusionado trae valor, el resto hay que propagarlo a mano.
+- **pyiceberg**: implementación pura Python del formato de tabla Iceberg, sin JVM; expone
+  `load_catalog`, `table.append`, `table.overwrite`, `table.scan()`.
+- **Topic (Kafka)**: el canal de mensajes con nombre al que un productor escribe y del que un
+  consumidor lee.
+- **Partición (Kafka)**: subdivisión de un topic; los mensajes con la misma clave siempre caen
+  en la misma partición y llegan ordenados entre sí.
+- **Offset**: posición de un mensaje dentro de una partición de Kafka.
+- **Consumer group**: identidad de un consumidor independiente, usada para recordar hasta dónde
+  leyó; en Structured Streaming, ese rol lo cumple el checkpoint de cada query.
+- **Watermark**: el máximo tiempo de evento visto menos un umbral; un evento más viejo que eso
+  se descarta de una agregación en streaming.
+- **Checkpoint (Structured Streaming)**: carpeta donde Spark guarda los offsets procesados y el
+  estado de una query, para retomarla exacta tras un reinicio.
+- **`GroupKFold`**: variante de validación cruzada que obliga a que todas las filas de un mismo
+  grupo caigan del mismo lado del split, para no filtrar información entre train y test.
+- **SHAP**: valores de teoría de juegos que reparten una predicción entre las features que la
+  explican; `TreeExplainer` los calcula exacto para modelos de árboles.
+- **Alias de modelo (MLflow)**: etiqueta de texto libre sobre una versión registrada de un
+  modelo (reemplaza a los viejos *stages*); un cliente pide `models:/<nombre>@<alias>`.
+- **Freshness (dbt source freshness)**: chequeo de actualidad de una fuente: compara su última
+  carga contra dos umbrales (`warn_after`, `error_after`), a diferencia de un contrato de datos,
+  que chequea estructura y valores, no antigüedad.
