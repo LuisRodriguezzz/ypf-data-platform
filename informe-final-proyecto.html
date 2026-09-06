@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YPF Data Platform Informe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #EEF1F4; --surface: #FFFFFF; --surface-2: #F6F8FA;
+    --ink: #16202B; --muted: #5B6875; --line: #D3DAE1; --line-strong: #AEB9C4;
+    --accent: #C8731A; --accent-ink: #8F4E0C; --accent-soft: #FBEEDD;
+    --ok: #1F7A74; --ok-soft: #DDF0EE; --warn: #8A6D1F; --warn-soft: #F5ECCF;
+    --bad: #B8412F; --bad-soft: #F8E1DC; --unk: #6B7680; --unk-soft: #E6EAEE;
+    --code-bg: #F0F3F6; --shadow: 0 1px 2px rgba(22,32,43,.06), 0 8px 24px rgba(22,32,43,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E141B; --surface: #161E27; --surface-2: #1C2631;
+      --ink: #E4EAF0; --muted: #98A5B2; --line: #2A3542; --line-strong: #3C4A59;
+      --accent: #F0A24A; --accent-ink: #F7C27E; --accent-soft: #33261A;
+      --ok: #4CC2B7; --ok-soft: #12302E; --warn: #E0BC5A; --warn-soft: #33290F;
+      --bad: #E5715C; --bad-soft: #3A1B16; --unk: #9AA6B2; --unk-soft: #232C36;
+      --code-bg: #0F161D; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E141B; --surface: #161E27; --surface-2: #1C2631;
+    --ink: #E4EAF0; --muted: #98A5B2; --line: #2A3542; --line-strong: #3C4A59;
+    --accent: #F0A24A; --accent-ink: #F7C27E; --accent-soft: #33261A;
+    --ok: #4CC2B7; --ok-soft: #12302E; --warn: #E0BC5A; --warn-soft: #33290F;
+    --bad: #E5715C; --bad-soft: #3A1B16; --unk: #9AA6B2; --unk-soft: #232C36;
+    --code-bg: #0F161D; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; font-size: 15.5px; line-height: 1.6; }
+  a { color: var(--accent-ink); text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh; }
+  nav.side { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 28px 18px 28px 22px; border-right: 1px solid var(--line); background: var(--surface); }
+  nav.side .brand { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 20px; text-transform: uppercase; line-height: 1.1; letter-spacing: .02em; }
+  nav.side .brand small { display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; margin-top: 6px; }
+  nav.side ol { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  nav.side a { display: block; padding: 5px 8px; border-radius: 4px; color: var(--ink); text-decoration: none; font-size: 13.5px; }
+  nav.side a:hover { background: var(--surface-2); }
+  nav.side a .n { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-right: 6px; }
+  main { padding: 36px clamp(20px, 5vw, 72px) 96px; max-width: 1100px; }
+  @media (max-width: 960px) { .shell { grid-template-columns: 1fr; } nav.side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); } nav.side ol { flex-direction: row; flex-wrap: wrap; gap: 4px 10px; } }
+  h1, h2, h3 { font-family: "Barlow Condensed", sans-serif; text-wrap: balance; line-height: 1.1; margin: 0; }
+  h1 { font-size: clamp(40px, 6vw, 60px); font-weight: 700; }
+  h2 { font-size: 32px; font-weight: 600; margin-top: 64px; padding-top: 18px; border-top: 2px solid var(--ink); }
+  h2 .n { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; letter-spacing: .04em; }
+  h3 { font-size: 23px; font-weight: 600; margin-top: 34px; }
+  h4 { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; margin: 18px 0 6px; }
+  p { max-width: 70ch; margin: 12px 0; }
+  ul, ol { max-width: 74ch; padding-left: 22px; } li { margin: 5px 0; } li::marker { color: var(--muted); }
+  .lede { font-size: 18px; max-width: 68ch; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .92em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; max-width: 100%; }
+  pre code { background: none; padding: 0; }
+  header.hero { border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+  header.hero .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); }
+  .b { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; line-height: 1; padding: 4px 6px; border-radius: 3px; vertical-align: middle; white-space: nowrap; }
+  .b-v { background: var(--ok-soft); color: var(--ok); } .b-p { background: var(--warn-soft); color: var(--warn); }
+  .b-u { background: var(--unk-soft); color: var(--unk); } .b-x { background: var(--bad-soft); color: var(--bad); } .b-a { background: var(--accent-soft); color: var(--accent-ink); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 20px 0 6px; }
+  .stat { border-top: 2px solid var(--accent); padding: 10px 0 0; }
+  .stat .v { font-family: "Barlow Condensed", sans-serif; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .tw { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { padding: 9px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { background: var(--surface-2); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; white-space: nowrap; }
+  .cards { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+  @media (max-width: 720px) { .cards { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; }
+  .card .k { font-family: "Barlow Condensed", sans-serif; font-size: 20px; font-weight: 600; line-height: 1.15; }
+  .card p { font-size: 14px; margin: 8px 0 0; }
+  .card ul { font-size: 14px; margin: 8px 0 0; padding-left: 18px; }
+  figure { margin: 22px 0; } figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; max-width: 80ch; }
+  .diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto; }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 18px 0; max-width: 76ch; }
+  .note p { margin: 4px 0; font-size: 14.5px; }
+  .warn { border-left-color: var(--bad); background: var(--bad-soft); }
+  .timeline { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 8px; max-width: 84ch; }
+  .timeline li { display: grid; grid-template-columns: 120px 1fr; gap: 14px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; font-size: 14.5px; }
+  .timeline .w { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--accent-ink); }
+  .checks { columns: 2; column-gap: 32px; max-width: 92ch; } @media (max-width: 720px) { .checks { columns: 1; } }
+  .checks li { break-inside: avoid; font-size: 14.5px; }
+  .small { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="side" aria-label="Secciones">
+  <div class="brand">YPF Data Platform<br>Informe<small>estado al 2026-09-06</small></div>
+  <ol>
+    <li><a href="#resumen"><span class="n">01</span>Resumen ejecutivo</a></li>
+    <li><a href="#arquitectura"><span class="n">02</span>Arquitectura</a></li>
+    <li><a href="#flujo"><span class="n">03</span>Flujo de un dato</a></li>
+    <li><a href="#fuentes"><span class="n">04</span>Fuentes y hallazgos</a></li>
+    <li><a href="#lakehouse"><span class="n">05</span>Tablas del lakehouse</a></li>
+    <li><a href="#modulos"><span class="n">06</span>Módulos</a></li>
+    <li><a href="#decisiones"><span class="n">07</span>Decisiones (ADR)</a></li>
+    <li><a href="#ml"><span class="n">08</span>Machine learning</a></li>
+    <li><a href="#aws"><span class="n">09</span>AWS y costos</a></li>
+    <li><a href="#verificado"><span class="n">10</span>Verificado y límites</a></li>
+    <li><a href="#pendiente"><span class="n">11</span>Pendiente con vos presente</a></li>
+    <li><a href="#dashboard"><span class="n">12</span>Opciones de dashboard</a></li>
+    <li><a href="#estudio"><span class="n">13</span>Plan de estudio</a></li>
+    <li><a href="#cronologia"><span class="n">14</span>Cronología</a></li>
+    <li><a href="#docs"><span class="n">15</span>Documentación</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Proyecto portfolio · ingeniería de datos end-to-end · datos públicos reales del upstream argentino</div>
+  <h1>YPF Data Platform</h1>
+  <p class="lede">Informe completo de lo construido entre el 4 y el 6 de septiembre de 2026: arquitectura, decisiones, hallazgos en los datos, resultados medidos, límites honestos y lo que queda por hacer con vos presente.</p>
+  <div class="meta">
+    <span>Repo público: github.com/LuisRodriguezzz/ypf-data-platform</span>
+    <span>36 commits · CI en verde</span>
+    <span>196 tests Python · 84 tests dbt</span>
+    <span>14 ADR · 6 fichas de fuentes · 2 guías de estudio</span>
+  </div>
+</header>
+
+<!-- 01 -->
+<h2 id="resumen"><span class="n">01</span>Resumen ejecutivo</h2>
+<p class="lede">Una plataforma de datos que toma la producción real de todos los pozos de petróleo y gas de Argentina desde 2006, más fracturas, reservas y telemetría real de pozos, la ordena en capas confiables, la modela para negocio y ML, y corre con el mismo código en tu laptop y en AWS.</p>
+
+<div class="stats">
+  <div class="stat"><div class="v">18,2 M</div><div class="l">filas de producción mensual por pozo, 2006 a 2026, tipadas y validadas</div></div>
+  <div class="stat"><div class="v">4</div><div class="l">fuentes reales hasta silver: producción, padrón, fractura, reservas; más telemetría 3W</div></div>
+  <div class="stat"><div class="v">2</div><div class="l">destinos con el mismo código: Podman local y AWS (Glue, Step Functions, Athena)</div></div>
+  <div class="stat"><div class="v">7×</div><div class="l">más petróleo a 12 meses entre pozos de menos de 20 y más de 40 etapas de fractura</div></div>
+  <div class="stat"><div class="v">468.001</div><div class="l">eventos de streaming sin duplicados tras matar y reiniciar el consumidor</div></div>
+  <div class="stat"><div class="v">&lt; 2 USD</div><div class="l">reconstruir el entorno AWS completo desde cero, cuatro pipelines incluidos</div></div>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="k">Qué demuestra</div><ul>
+    <li>Ingesta idempotente con manifiesto en dos niveles (metadata y hash).</li>
+    <li>Lakehouse medallion en Iceberg con linaje por fila y contratos de datos en YAML.</li>
+    <li>Modelo dimensional Kimball con SCD tipo 2 sobre 21 años, en dbt, con 84 tests.</li>
+    <li>Streaming con watermark, ventanas y checkpoints, exactly-once en bronze.</li>
+    <li>Dos modelos de ML con validación sin fuga y resultados honestos, seguidos en MLflow.</li>
+    <li>Orquestación que solo orquesta, IaC completa, CI, ambientes definidos en código.</li>
+  </ul></div>
+  <div class="card"><div class="k">Qué lo distingue</div><ul>
+    <li>Cada tabla declara <code>data_origin</code>: real, simulado o derivado. No hay datos inventados presentados como reales.</li>
+    <li>Cada decisión tiene un ADR con la alternativa descartada y el porqué.</li>
+    <li>Cada fuente tiene una ficha con lo medido, no lo supuesto: claves reales, rarezas, unidades.</li>
+    <li>El README dice qué se verificó y qué no, con la misma prioridad que los resultados.</li>
+    <li>El código lo leen personas: funciones cortas, comentarios con el porqué, sin abstracciones vacías.</li>
+  </ul></div>
+</div>
+
+<!-- 02 -->
+<h2 id="arquitectura"><span class="n">02</span>Arquitectura</h2>
+<p>Un stack, dos destinos. El código de <code>pipelines/</code> no sabe dónde corre: lee variables de entorno. Lo que cambia entre destinos es la configuración, la orquestación y quién provee el catálogo.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 1040 700" role="img" aria-label="Arquitectura: fuentes a landing, bronze, silver, gold, ML y monitoreo; carril de streaming en paralelo; orquestación por Airflow en local y Step Functions en AWS; un mismo paquete de código en los dos destinos.">
+  <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+  <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C8731A"/></marker></defs>
+  <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" fill="currentColor">
+    <!-- Fuentes -->
+    <text x="20" y="34" font-weight="600" font-size="13">FUENTES</text>
+    <rect x="20" y="46" width="170" height="54" rx="4" fill="none" stroke="currentColor"/>
+    <text x="105" y="67" text-anchor="middle">Secretaría de Energía</text>
+    <text x="105" y="84" text-anchor="middle" font-size="11" opacity=".75">CKAN http · CSV anuales · ZIP XLSX</text>
+    <rect x="20" y="118" width="170" height="54" rx="4" fill="none" stroke="currentColor"/>
+    <text x="105" y="139" text-anchor="middle">Petrobras 3W</text>
+    <text x="105" y="156" text-anchor="middle" font-size="11" opacity=".75">telemetría real 1 Hz · CC BY 4.0</text>
+
+    <!-- Batch lane -->
+    <rect x="220" y="20" width="800" height="200" rx="8" fill="none" stroke="#C8731A" stroke-width="1.5"/>
+    <text x="236" y="42" font-weight="600" font-size="13" fill="#C8731A">CAMINO BATCH · un job por flecha, idempotente, orquestado</text>
+
+    <rect x="236" y="60" width="130" height="54" rx="4" fill="none" stroke="currentColor"/>
+    <text x="301" y="81" text-anchor="middle">landing</text>
+    <text x="301" y="98" text-anchor="middle" font-size="11" opacity=".75">archivo tal cual + sha256</text>
+    <rect x="396" y="60" width="130" height="54" rx="4" fill="none" stroke="currentColor"/>
+    <text x="461" y="81" text-anchor="middle">bronze</text>
+    <text x="461" y="98" text-anchor="middle" font-size="11" opacity=".75">Iceberg · string + linaje</text>
+    <rect x="556" y="60" width="130" height="54" rx="4" fill="none" stroke="currentColor"/>
+    <text x="621" y="81" text-anchor="middle">silver</text>
+    <text x="621" y="98" text-anchor="middle" font-size="11" opacity=".75">contrato · cuarentena</text>
+    <rect x="716" y="60" width="130" height="54" rx="4" fill="none" stroke="currentColor"/>
+    <text x="781" y="81" text-anchor="middle">gold (dbt)</text>
+    <text x="781" y="98" text-anchor="middle" font-size="11" opacity=".75">4 dim · 3 fact · mart</text>
+    <rect x="876" y="60" width="130" height="54" rx="4" fill="none" stroke="currentColor"/>
+    <text x="941" y="81" text-anchor="middle">ML + monitoreo</text>
+    <text x="941" y="98" text-anchor="middle" font-size="11" opacity=".75">predicción · alertas · salud</text>
+
+    <line x1="190" y1="73" x2="234" y2="87" stroke="currentColor" marker-end="url(#arr)"/>
+    <text x="212" y="66" font-size="10" opacity=".8">ingest</text>
+    <line x1="366" y1="87" x2="394" y2="87" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="526" y1="87" x2="554" y2="87" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="686" y1="87" x2="714" y2="87" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="846" y1="87" x2="874" y2="87" stroke="currentColor" marker-end="url(#arr)"/>
+
+    <text x="301" y="140" text-anchor="middle" font-size="11" opacity=".8">manifiesto (Postgres)</text>
+    <text x="461" y="140" text-anchor="middle" font-size="11" opacity=".8">tabla por tipo de recurso</text>
+    <text x="621" y="140" text-anchor="middle" font-size="11" opacity=".8">dq_runs · *_rejects</text>
+    <text x="781" y="140" text-anchor="middle" font-size="11" opacity=".8">SCD2 · tests · docs</text>
+    <text x="941" y="140" text-anchor="middle" font-size="11" opacity=".8">MLflow · salud_pipeline</text>
+    <text x="620" y="190" text-anchor="middle" font-size="11" opacity=".8">Todas las tablas son Iceberg en un solo catálogo · cada una declara data_origin ∈ {real, simulated, derived}</text>
+
+    <!-- Streaming lane -->
+    <rect x="220" y="240" width="800" height="110" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    <text x="236" y="262" font-weight="600" font-size="13">CAMINO STREAMING · telemetría de pozos</text>
+    <rect x="236" y="280" width="150" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="311" y="300" text-anchor="middle">replay_3w (productor)</text>
+    <text x="311" y="317" text-anchor="middle" font-size="11" opacity=".75">1 Hz × 60 · 5 % tardíos</text>
+    <rect x="416" y="280" width="150" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="491" y="300" text-anchor="middle">Kafka (KRaft)</text>
+    <text x="491" y="317" text-anchor="middle" font-size="11" opacity=".75">13 particiones · clave idpozo</text>
+    <rect x="596" y="280" width="190" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="691" y="300" text-anchor="middle">Spark Structured Streaming</text>
+    <text x="691" y="317" text-anchor="middle" font-size="11" opacity=".75">watermark 2 min · checkpoints</text>
+    <rect x="816" y="280" width="190" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="911" y="300" text-anchor="middle">bronze.telemetria_pozo</text>
+    <text x="911" y="317" text-anchor="middle" font-size="11" opacity=".75">silver.telemetria_pozo_1min</text>
+    <line x1="190" y1="145" x2="234" y2="300" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="386" y1="305" x2="414" y2="305" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="566" y1="305" x2="594" y2="305" stroke="currentColor" marker-end="url(#arr)"/>
+    <line x1="786" y1="305" x2="814" y2="305" stroke="currentColor" marker-end="url(#arr)"/>
+
+    <!-- Destinos -->
+    <rect x="20" y="380" width="490" height="300" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    <text x="36" y="402" font-weight="600" font-size="13">DESTINO LOCAL · Podman Compose · permanente · costo 0</text>
+    <rect x="530" y="380" width="490" height="300" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+    <text x="546" y="402" font-weight="600" font-size="13">DESTINO AWS · Terraform (29 recursos) · efímero · centavos</text>
+
+    <g font-size="11.5">
+      <text x="36" y="430">almacenamiento</text><text x="200" y="430" font-weight="500">MinIO (API S3)</text>
+      <text x="36" y="452">catálogo</text><text x="200" y="452" font-weight="500">Iceberg REST + SQLite</text>
+      <text x="36" y="474">cómputo</text><text x="200" y="474" font-weight="500">runner efímero apache/spark 4.0.4</text>
+      <text x="36" y="496">orquestación</text><text x="200" y="496" font-weight="500">Airflow 3.3 standalone → DockerOperator</text>
+      <text x="36" y="518">consulta</text><text x="200" y="518" font-weight="500">DuckDB / pyiceberg</text>
+      <text x="36" y="540">gold</text><text x="200" y="540" font-weight="500">dbt-spark en sesión, dentro del runner</text>
+      <text x="36" y="562">streaming</text><text x="200" y="562" font-weight="500">Kafka 4.1 (perfil streaming)</text>
+      <text x="36" y="584">ML</text><text x="200" y="584" font-weight="500">MLflow 3.16 (perfil mlflow)</text>
+      <text x="36" y="606">metadatos</text><text x="200" y="606" font-weight="500">Postgres del compose</text>
+      <text x="36" y="628">secretos</text><text x="200" y="628" font-weight="500">.env ignorado por git</text>
+
+      <text x="546" y="430">almacenamiento</text><text x="700" y="430" font-weight="500">S3 (landing/, warehouse/, artifacts/)</text>
+      <text x="546" y="452">catálogo</text><text x="700" y="452" font-weight="500">Glue Data Catalog</text>
+      <text x="546" y="474">cómputo</text><text x="700" y="474" font-weight="500">Glue 5.0 Spark + Glue Python shell</text>
+      <text x="546" y="496">orquestación</text><text x="700" y="496" font-weight="500">Step Functions (.sync) + EventBridge</text>
+      <text x="546" y="518">consulta</text><text x="700" y="518" font-weight="500">Athena (Trino), workgroup propio</text>
+      <text x="546" y="540">gold</text><text x="700" y="540" font-weight="500">dbt-athena en un job de Glue</text>
+      <text x="546" y="562">streaming</text><text x="700" y="562" font-weight="500">no desplegado (solo local)</text>
+      <text x="546" y="584">ML</text><text x="700" y="584" font-weight="500">no desplegado (solo local)</text>
+      <text x="546" y="606">metadatos</text><text x="700" y="606" font-weight="500">Neon (Postgres serverless gratis)</text>
+      <text x="546" y="628">secretos</text><text x="700" y="628" font-weight="500">SSM Parameter Store + roles IAM</text>
+    </g>
+    <text x="265" y="662" text-anchor="middle" font-size="11" fill="#C8731A">mismo wheel de Python · mismos contratos · mismos modelos dbt</text>
+    <line x1="420" y1="658" x2="600" y2="658" stroke="#C8731A" stroke-width="1.5" marker-end="url(#arrA)" marker-start="url(#arrA)"/>
+    <text x="775" y="662" text-anchor="middle" font-size="11" fill="#C8731A">solo cambia la configuración por variables de entorno</text>
+  </g>
+</svg>
+<figcaption>Las cinco capas del camino batch y las tres del streaming son las mismas tablas Iceberg en ambos destinos. Streaming y ML corren solo en local por decisión de costo y RAM; el resto está desplegado y validado en AWS con los mismos conteos.</figcaption>
+</figure>
+
+<h3>Cómo se corresponde con lo que conocés de otras plataformas</h3>
+<div class="tw"><table>
+  <thead><tr><th>Rol</th><th>Local</th><th>AWS</th><th>Azure</th><th>Databricks</th></tr></thead>
+  <tbody>
+    <tr><td>Archivos</td><td>MinIO</td><td>S3</td><td>ADLS Gen2</td><td>Volumes</td></tr>
+    <tr><td>Catálogo</td><td>Iceberg REST</td><td>Glue Data Catalog</td><td>Purview / Fabric</td><td>Unity Catalog</td></tr>
+    <tr><td>Cómputo Spark</td><td>runner efímero</td><td>Glue jobs</td><td>Synapse / Fabric Spark</td><td>clústeres, serverless</td></tr>
+    <tr><td>Orquestación</td><td>Airflow</td><td>Step Functions</td><td>Data Factory</td><td>Lakeflow Jobs</td></tr>
+    <tr><td>SQL sobre el lake</td><td>DuckDB</td><td>Athena</td><td>Synapse serverless</td><td>SQL Warehouse</td></tr>
+    <tr><td>Transformación declarativa</td><td>dbt-spark</td><td>dbt-athena</td><td>dbt</td><td>Lakeflow Declarative Pipelines</td></tr>
+    <tr><td>Secretos</td><td>.env</td><td>SSM + IAM</td><td>Key Vault</td><td>Secrets</td></tr>
+  </tbody>
+</table></div>
+
+<!-- 03 -->
+<h2 id="flujo"><span class="n">03</span>Flujo de un dato, función por función</h2>
+<p>Qué pasa cuando corre el pipeline mensual de producción. Cada paso es un job independiente que consulta su propio estado para saber qué hacer, así se puede correr mil veces sin duplicar.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 1040 330" role="img" aria-label="Hilo de ejecución del pipeline de producción: discover en CKAN, decisión por manifiesto, descarga en streaming con hash, carga bronze por partición, silver con contrato y cuarentena, gold con dbt.">
+  <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+  <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="11.5" fill="currentColor">
+    <g>
+      <rect x="20" y="30" width="150" height="70" rx="4" fill="none" stroke="currentColor"/>
+      <text x="95" y="52" text-anchor="middle" font-weight="600">1 · discover</text>
+      <text x="95" y="70" text-anchor="middle" font-size="10.5" opacity=".8">package_show en CKAN</text>
+      <text x="95" y="85" text-anchor="middle" font-size="10.5" opacity=".8">include/exclude/formats · dedupe por id</text>
+      <rect x="190" y="30" width="150" height="70" rx="4" fill="none" stroke="currentColor"/>
+      <text x="265" y="52" text-anchor="middle" font-weight="600">2 · decidir</text>
+      <text x="265" y="70" text-anchor="middle" font-size="10.5" opacity=".8">manifest.latest_ok</text>
+      <text x="265" y="85" text-anchor="middle" font-size="10.5" opacity=".8">¿mismo tamaño y fecha? → unchanged</text>
+      <rect x="360" y="30" width="150" height="70" rx="4" fill="none" stroke="currentColor"/>
+      <text x="435" y="52" text-anchor="middle" font-weight="600">3 · descargar</text>
+      <text x="435" y="70" text-anchor="middle" font-size="10.5" opacity=".8">GET en streaming → multipart S3</text>
+      <text x="435" y="85" text-anchor="middle" font-size="10.5" opacity=".8">sha256 al vuelo · sin disco local</text>
+      <rect x="530" y="30" width="150" height="70" rx="4" fill="none" stroke="currentColor"/>
+      <text x="605" y="52" text-anchor="middle" font-weight="600">4 · bronze</text>
+      <text x="605" y="70" text-anchor="middle" font-size="10.5" opacity=".8">¿sha ya cargado? → salta</text>
+      <text x="605" y="85" text-anchor="middle" font-size="10.5" opacity=".8">overwritePartitions por recurso</text>
+      <rect x="700" y="30" width="150" height="70" rx="4" fill="none" stroke="currentColor"/>
+      <text x="775" y="52" text-anchor="middle" font-weight="600">5 · silver</text>
+      <text x="775" y="70" text-anchor="middle" font-size="10.5" opacity=".8">cast por contrato · rechazos aparte</text>
+      <text x="775" y="85" text-anchor="middle" font-size="10.5" opacity=".8">dedupe por fechaingreso · dq_runs</text>
+      <rect x="870" y="30" width="150" height="70" rx="4" fill="none" stroke="currentColor"/>
+      <text x="945" y="52" text-anchor="middle" font-weight="600">6 · gold</text>
+      <text x="945" y="70" text-anchor="middle" font-size="10.5" opacity=".8">dbt build: 10 modelos</text>
+      <text x="945" y="85" text-anchor="middle" font-size="10.5" opacity=".8">84 tests · reconciliación</text>
+      <line x1="170" y1="65" x2="188" y2="65" stroke="currentColor" marker-end="url(#arr2)"/>
+      <line x1="340" y1="65" x2="358" y2="65" stroke="currentColor" marker-end="url(#arr2)"/>
+      <line x1="510" y1="65" x2="528" y2="65" stroke="currentColor" marker-end="url(#arr2)"/>
+      <line x1="680" y1="65" x2="698" y2="65" stroke="currentColor" marker-end="url(#arr2)"/>
+      <line x1="850" y1="65" x2="868" y2="65" stroke="currentColor" marker-end="url(#arr2)"/>
+    </g>
+    <g font-size="11">
+      <text x="20" y="140" font-weight="600">Tiempo medido (backfill completo, 21 años, laptop de 16 GB)</text>
+      <text x="20" y="162">ingesta 4 min 20 s (5,4 GB a 18 MB/s)</text>
+      <text x="290" y="162">bronze 6 min 45 s</text>
+      <text x="470" y="162">silver 13 min 20 s</text>
+      <text x="650" y="162">gold (dbt build) 5 min 45 s</text>
+      <text x="20" y="184" opacity=".8">Corrida repetida sin cambios: 2 min 34 s en local (todo arranque de JVM), 5 min en AWS (arranque de Glue).</text>
+      <text x="20" y="220" font-weight="600">Lo mismo en AWS (Step Functions)</text>
+      <text x="20" y="242">ingest_landing (Python shell 0,0625 DPU) → bronze_load (Glue 5.0, 2 workers) → silver_load → gold_dbt</text>
+      <text x="20" y="264" opacity=".8">Backfill completo de producción: 72 min, ~0,50 USD. Padrón solo: 5 min, 0,04 USD. Gold: 80 s, 0,15 USD.</text>
+      <text x="20" y="300" font-weight="600">Dónde vive el estado que hace todo idempotente</text>
+      <text x="20" y="320">manifiesto (Postgres/Neon) para landing · _source_sha256 en bronze y silver · sha por recurso · checkpoints de Spark para streaming · alias champion en MLflow</text>
+    </g>
+  </g>
+</svg>
+<figcaption>Cada paso decide por sí mismo si tiene trabajo: el manifiesto para la descarga, el hash por recurso para bronze y silver, los tests para gold. El orquestador no lleva estado.</figcaption>
+</figure>
+
+<!-- 04 -->
+<h2 id="fuentes"><span class="n">04</span>Fuentes y hallazgos en los datos</h2>
+<p>Todo lo que sigue se midió sobre los archivos reales. Cada fuente tiene su ficha en <code>docs/fuentes/</code> con columnas, clave, unidades y rarezas.</p>
+
+<div class="tw"><table>
+  <thead><tr><th>Fuente</th><th>Origen</th><th class="num">Filas silver</th><th>Cadencia</th><th>Clave</th><th>Rechazos</th></tr></thead>
+  <tbody>
+    <tr><td>Producción por pozo (DDJJ abiertas y cerradas)</td><td>CKAN, 21 CSV anuales, 5,4 GB</td><td class="num">18.218.514</td><td>mensual</td><td><code>idpozo + anio + mes</code></td><td>224 (valores negativos, tef &gt; 744)</td></tr>
+    <tr><td>Padrón de pozos con primera producción</td><td>CKAN, 1,2 MB</td><td class="num">86.197</td><td>mensual</td><td><code>idpozo</code></td><td>0</td></tr>
+    <tr><td>Fractura (Adjunto IV)</td><td>CKAN, CSV diario</td><td class="num">4.878</td><td>diaria</td><td><code>id_base_fractura_adjiv</code></td><td>12 (presiones y potencias imposibles)</td></tr>
+    <tr><td>Reservas y recursos al 31/12</td><td>ZIP con XLSX de 2 hojas, 2020 a 2024</td><td class="num">198.734</td><td>anual</td><td>11 columnas de identidad</td><td>2 (un valor negativo)</td></tr>
+    <tr><td>Telemetría 3W (Petrobras)</td><td>GitHub, Parquet 1 Hz, 88 archivos</td><td class="num">7.774 ventanas</td><td>replay</td><td><code>idpozo + ventana</code></td><td>n/a</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Lo que nadie sabía antes de medir</h3>
+<div class="cards">
+  <div class="card"><div class="k">Producción: la familia correcta y sus rarezas</div><ul>
+    <li>El portal publica cada año en dos familias. "DDJJ abiertas y cerradas" es un <strong>superconjunto estricto</strong> de la normal: 0 diferencias de valores en 983.551 filas comunes, 159 rectificativas de Shell que la normal no tiene, y la normal quedó congelada 5 meses antes según CKAN. Decisión definitiva, cerrada el 6 de septiembre.</li>
+    <li><code>tef</code> son horas efectivas del mes (máximo 720); <code>vida_util</code> viene vacía; hay un pozo con 378.939 m de profundidad declarados.</li>
+    <li>El 48 % de las filas de 2024 son de YPF S.A. El no convencional tiene el 6 % de las filas y el 63 % del petróleo.</li>
+    <li>Los CSV traen decimales como "0.000": la inferencia automática de tipos falla; el contrato fuerza Float64.</li>
+  </ul></div>
+  <div class="card"><div class="k">Fractura: la clave no era la obvia</div><ul>
+    <li>Pozo más fecha de inicio <strong>no es única</strong>: hasta 6 declaraciones del mismo pozo el mismo día. La clave real es un identificador del formulario, único en las 4.890 filas.</li>
+    <li>12 presiones mayores a 20.000 psi (máxima 209.640) y una potencia de 232.159 HP: errores de unidad, a cuarentena.</li>
+    <li>41 fracturas con fin anterior al inicio, 3 con día y mes invertidos; 2.054 con longitud horizontal cero que son pozos verticales, no faltantes.</li>
+  </ul></div>
+  <div class="card"><div class="k">Reservas: un Excel armado a mano</div><ul>
+    <li>Encabezado de 7 filas con rangos fusionados; los nombres de hoja, la fila de totales y el orden cambian entre años. El parser ubica cada nivel por vocabulario, no por posición.</li>
+    <li>3 identidades duplicadas en el Excel original, con la declaración partida en dos filas; 1.797 celdas vacías que son "no declaró", no cero.</li>
+    <li>El 96 % de las reservas comprobadas de petróleo de YPF al cierre 2024 es no convencional en la Neuquina: 129.768 contra 4.988 miles de m³.</li>
+  </ul></div>
+  <div class="card"><div class="k">Padrón y telemetría</div><ul>
+    <li>Ningún pozo que produjo en 2024 falta en el padrón; 3.818 pozos del padrón no producen en 2024 (1.185 arrancan después, 2.633 dejaron de producir).</li>
+    <li>3W muestrea exactamente a 1 Hz (medido). Los archivos viejos traen la mayoría de los sensores nulos; la clase 100+N marca el transitorio previo al evento N, que es lo que permite anticipar.</li>
+  </ul></div>
+</div>
+
+<!-- 05 -->
+<h2 id="lakehouse"><span class="n">05</span>Tablas del lakehouse</h2>
+<p>Todas Iceberg, todas en el catálogo <code>lake</code>, todas con <code>data_origin</code>. Lo de gold y monitoreo lo construye dbt.</p>
+<div class="tw"><table>
+  <thead><tr><th>Capa</th><th>Tabla</th><th class="num">Filas</th><th>Origen del dato</th><th>Qué es</th></tr></thead>
+  <tbody>
+    <tr><td>bronze</td><td>produccion_pozo, pozo_primera_produccion, fractura, reservas</td><td class="num">18,2 M · 86 k · 4.890 · 198.816</td><td><span class="b b-v">real</span></td><td>copia fiel de cada archivo, todo texto, partición por recurso</td></tr>
+    <tr><td>bronze</td><td>telemetria_pozo, pozo_map_3w</td><td class="num">702.002 · 18</td><td><span class="b b-a">simulated</span></td><td>sensores reales de Petrobras con mapeo ficticio a pozos argentinos</td></tr>
+    <tr><td>silver</td><td>produccion_pozo, pozo_primera_produccion, fractura, reservas</td><td class="num">18,2 M · 86 k · 4.878 · 198.734</td><td><span class="b b-v">real</span></td><td>tipadas por contrato, deduplicadas, particionadas por año</td></tr>
+    <tr><td>silver</td><td>*_rejects, dq_runs, telemetria_pozo_1min</td><td class="num">238 · 22+ · 7.774</td><td>—</td><td>cuarentena con motivo, historial de calidad, ventanas de un minuto</td></tr>
+    <tr><td>gold</td><td>dim_fecha, dim_empresa, dim_yacimiento, dim_pozo</td><td class="num">252 · 139 · 1.321 · 611.304</td><td><span class="b b-u">derived</span></td><td>dimensiones; dim_pozo es SCD tipo 2 con vigencias</td></tr>
+    <tr><td>gold</td><td>fact_produccion_mensual, fact_fractura, fact_reservas</td><td class="num">18.218.514 · 4.878 · 190.366</td><td><span class="b b-u">derived</span></td><td>hechos con claves surrogate y meses desde primera producción</td></tr>
+    <tr><td>gold</td><td>mart_pozo_completacion_produccion</td><td class="num">4.635</td><td><span class="b b-u">derived</span></td><td>tabla de features: diseño de fractura y producción a 3, 6 y 12 meses</td></tr>
+    <tr><td>gold</td><td>prediccion_produccion_12m, alerta_evento_pozo</td><td class="num">3.825 · 5.919</td><td><span class="b b-u">derived</span></td><td>salidas de los dos modelos, con versión del modelo</td></tr>
+    <tr><td>gold</td><td>salud_pipeline, calidad_por_corrida</td><td class="num">14 · 4</td><td><span class="b b-u">derived</span></td><td>metadatos del propio pipeline: frescura, filas, rechazos</td></tr>
+  </tbody>
+</table></div>
+<p class="small">Compresión medida: 6 GB de CSV crudo en landing ocupan 0,53 GB como Iceberg entre bronze y silver, once veces menos.</p>
+
+<!-- 06 -->
+<h2 id="modulos"><span class="n">06</span>Módulos, uno por uno</h2>
+<div class="cards">
+  <div class="card"><div class="k">Ingesta · <code>pipelines/ingest/</code></div><p>Registro declarativo de fuentes en YAML (CKAN o URL por año, include/exclude/formats). Cliente CKAN con reintentos y HTTP forzado, porque el portal responde 301 de https a http. Descarga en streaming a S3 por multipart calculando sha256 al vuelo, sin tocar disco. Manifiesto en Postgres con estados ok, unchanged y failed; la fila nace como failed y se promueve al terminar, así un proceso que muere deja evidencia.</p><p><span class="b b-v">medido</span> 307 MB en 21 s; segunda corrida 1 s y 0 bytes.</p></div>
+  <div class="card"><div class="k">Bronze · <code>spark_jobs/bronze_load.py</code></div><p>Lee del manifiesto por JDBC qué archivos hay, compara el hash con lo cargado y carga solo lo nuevo. Todo string, seis columnas de linaje, una partición por recurso que se reemplaza entera. Un YAML mapea cada tipo de recurso a su tabla, porque el dataset de producción mezcla esquemas. Reservas tiene su propio bronze en Python puro con pyiceberg, sin Spark, para un archivo de 400 KB.</p></div>
+  <div class="card"><div class="k">Silver y contratos · <code>contracts/*.yaml</code></div><p>El contrato es la única fuente de verdad de tipos, nulabilidad, rangos, clave y partición. El job genera los casts y las validaciones desde el YAML. Checks duros frenan el job; checks blandos mandan la fila a cuarentena con motivo; si los rechazos superan el 1 % se vuelve duro. Cada corrida deja una fila en dq_runs.</p><p><span class="b b-v">medido</span> 238 rechazos en 18,4 M filas, 0 fallas duras.</p></div>
+  <div class="card"><div class="k">Gold · <code>pipelines/dbt/</code></div><p>dbt-spark en modo sesión corriendo dentro del mismo runner: no agrega servicios y escribe Iceberg. dim_pozo reconstruye 21 años de cambios de atributo con lag y suma acumulada. fact_produccion_mensual resuelve la clave del pozo por rango de vigencia. Nueve macros de dialecto aíslan las diferencias con Athena. 84 tests, incluida la reconciliación de petróleo 2024 entre silver y gold.</p></div>
+  <div class="card"><div class="k">Streaming · <code>pipelines/streaming/</code></div><p>Productor que intercala archivos reales de 3W como pozos simultáneos a 60× y retiene el 5 % de eventos entre 30 y 120 s para probar el watermark; productor idempotente. Consumidor con dos queries: bronze crudo y agregación por minuto, cada una con su checkpoint. Trigger de 21 s en la segunda para que los commits no coincidan en el catálogo SQLite.</p><p><span class="b b-v">medido</span> 468.001 = 468.001 tras tres reiniciar el consumidor, 0 descartados con cortes cortos, 4.588 con cortes de 30 a 60 min.</p></div>
+  <div class="card"><div class="k">Orquestación · <code>orchestration/dags/</code></div><p>Airflow standalone que no ejecuta código: cada tarea lanza el runner por el socket de Podman. Siete DAGs de 20 a 40 líneas: producción mensual, fractura diaria, reservas mensual, gold mensual, ML mensual, eventos diario, monitoreo diario. Un callback de fallas compartido. En AWS, cuatro máquinas de estado nacen de un mapa de pipelines en Terraform.</p></div>
+  <div class="card"><div class="k">AWS · <code>infra/terraform/</code></div><p>29 recursos: bucket con versionado y ciclo de vida, bases de Glue, cinco jobs genéricos que reciben dataset o contrato por argumento, roles con permisos acotados, máquinas de estado con .sync, schedules deshabilitados, workgroup de Athena. Los jobs no usan claves: corren con roles. La cadena de Neon vive en SSM. Estado local a propósito, documentado.</p></div>
+  <div class="card"><div class="k">Monitoreo · <code>dbt/models/monitoreo/</code></div><p>Frescura de fuentes con dbt source freshness según la cadencia real de cada una. Mart salud_pipeline con filas, última carga, días de atraso y cuarentena por tabla. DAG diario que primero escribe la foto y después chequea la frescura, en ese orden para que la foto exista aunque falle el chequeo.</p></div>
+  <div class="card"><div class="k">CI y ambientes · <code>.github/</code></div><p>Tres jobs en cada push: lint, formato y tests con Moto; validación de Terraform y bootstrap; importación real de los DAGs con Airflow 3.3. Ambientes dev y prod definidos en código: sufijo por ambiente, workspaces, tfvars, OIDC con GitHub y workflow de despliegue con aprobación manual en prod, deshabilitado hasta que lo actives.</p></div>
+</div>
+
+<!-- 07 -->
+<h2 id="decisiones"><span class="n">07</span>Decisiones de arquitectura</h2>
+<p>Catorce ADR en <code>docs/adr/</code>. Cada uno tiene contexto, decisión y consecuencias. Acá la decisión y lo que se descartó.</p>
+<div class="tw"><table>
+  <thead><tr><th>ADR</th><th>Decisión</th><th>Alternativa descartada</th><th>Por qué</th></tr></thead>
+  <tbody>
+    <tr><td>0001</td><td>Un stack, dos destinos</td><td>Tres entornos (local, Databricks, AWS)</td><td>Databricks Free no puede ingerir del portal y AWS cierra la cuenta a los 6 meses; el local es el único permanente</td></tr>
+    <tr><td>0002</td><td>DuckDB en local, Athena en AWS</td><td>Trino en local</td><td>2 GB de RAM y un servicio más para lo que DuckDB resuelve embebido</td></tr>
+    <tr><td>0003</td><td>Catálogo Iceberg con SQLite</td><td>Imagen propia con driver de Postgres</td><td>No mantener imágenes; en AWS el catálogo es Glue</td></tr>
+    <tr><td>0004</td><td>Spark en un contenedor efímero</td><td>Java en Windows o clúster de contenedores</td><td>Sin winutils ni servicios permanentes; jars y pip en un volumen</td></tr>
+    <tr><td>0005</td><td>Contratos de datos en YAML</td><td>Casts en el código</td><td>Legible por personas y máquinas; checks duros y blandos con cuarentena</td></tr>
+    <tr><td>0006</td><td>Airflow solo orquesta, lanza contenedores</td><td>Airflow ejecutando código</td><td>Un solo lugar para dependencias; mismo patrón que Glue</td></tr>
+    <tr><td>0007</td><td>CI en GitHub Actions, repo público</td><td>CI que levante el stack</td><td>Minutos ilimitados; la integración real se prueba en local</td></tr>
+    <tr><td>0008</td><td>Glue y Step Functions</td><td>EMR y MWAA</td><td>Cero costo en reposo; MWAA cobra desde 0,49 USD/h aunque no corra nada</td></tr>
+    <tr><td>0009</td><td>Gold con dbt-spark en sesión</td><td>dbt-duckdb escribiendo Iceberg</td><td>Escritura Iceberg garantizada sin servicios nuevos; corrige el 0002</td></tr>
+    <tr><td>0010</td><td>Gold en AWS con dbt-athena en Glue 5.0</td><td>GitHub Actions con OIDC, Python shell</td><td>Mismo orquestador y mismas versiones que local; Python shell es 3.9 y dbt pide 3.10</td></tr>
+    <tr><td>0011</td><td>Kafka KRaft y Structured Streaming</td><td>Kinesis local, Redpanda, Flink</td><td>Un solo broker; el lakehouse ya es Spark de punta a punta</td></tr>
+    <tr><td>0012</td><td>Gradient boosting tabular, MLflow, batch</td><td>Deep learning, servicio en línea</td><td>351 filas; validación por yacimiento; inferencia mensual alcanza</td></tr>
+    <tr><td>0013</td><td>Ventanas de 180 s, split por instancia</td><td>Redes sobre secuencias</td><td>16 eventos reales no alcanzan para una red; el split evita la fuga entre ventanas vecinas</td></tr>
+    <tr><td>0014</td><td>Dos ambientes en un repo, workspaces, OIDC</td><td>Carpetas por ambiente, tres ambientes, claves en secretos</td><td>Sin módulos ni duplicación; prod con aprobación manual; nada de claves</td></tr>
+  </tbody>
+</table></div>
+
+<!-- 08 -->
+<h2 id="ml"><span class="n">08</span>Machine learning: dos modelos, resultados honestos</h2>
+
+<h3>Producción a 12 meses según diseño de completación</h3>
+<p>Target en logaritmo sobre 351 pozos no convencionales con 12 meses completos, 43 yacimientos. Validación con GroupKFold por yacimiento para que un pozo no aprenda de su vecino.</p>
+<div class="tw"><table>
+  <thead><tr><th>Modelo</th><th class="num">R² log</th><th class="num">R² m³</th><th class="num">MAE m³</th></tr></thead>
+  <tbody>
+    <tr><td>Baseline mediana</td><td class="num">−0,212</td><td class="num">−0,335</td><td class="num">13.451</td></tr>
+    <tr><td>Baseline lineal</td><td class="num">−11,59</td><td class="num">−2.574</td><td class="num">152.782</td></tr>
+    <tr><td><strong>HistGradientBoosting</strong></td><td class="num"><strong>0,381</strong></td><td class="num">0,191</td><td class="num">9.417</td></tr>
+    <tr><td>Mismo modelo con KFold aleatorio (con fuga)</td><td class="num">0,737</td><td class="num">—</td><td class="num">—</td></tr>
+  </tbody>
+</table></div>
+<div class="note"><p><strong>El matiz que importa.</strong> Las dos variables que más pesan según SHAP son el tipo de terminación y el año de la fractura, no el diseño: el modelo captura sobre todo la evolución tecnológica 2011 a 2025. La cantidad de etapas es tercera y robusta. 114 de los 351 pozos acumularon cero petróleo porque son de gas; no se filtraron para no elegir el subconjunto que le conviene al modelo. Predicciones para 3.825 pozos en <code>gold.prediccion_produccion_12m</code>, modelo v3 con alias champion en MLflow.</p></div>
+
+<h3>Clasificador de eventos de pozo sobre telemetría</h3>
+<p>Ventanas de 180 s con paso 15 s sobre 88 instancias reales de 3W (8,5 millones de lecturas): 89.879 ventanas, de las cuales 1.712 son evento. Tres clases: normal, transitorio, evento.</p>
+<div class="tw"><table>
+  <thead><tr><th>Modelo</th><th>Split</th><th class="num">F1 macro</th></tr></thead>
+  <tbody>
+    <tr><td>Clase mayoritaria</td><td>instancia</td><td class="num">0,233</td></tr>
+    <tr><td>Umbral sobre el desvío de un sensor</td><td>instancia</td><td class="num">0,481</td></tr>
+    <tr><td><strong>HistGradientBoosting</strong></td><td>instancia</td><td class="num"><strong>0,712</strong></td></tr>
+    <tr><td>HistGradientBoosting</td><td>pozo</td><td class="num">0,414</td></tr>
+  </tbody>
+</table></div>
+<p>Anticipación: de 16 instancias con evento, 8 se alertan a tiempo, 6 antes de que empiece el transitorio y 2 nunca. En los cierres espurios de válvula la alarma llega en promedio <strong>1 h 40 min antes</strong> del evento. Las features que más pesan son de nivel, no de pendiente, lo que explica la caída al validar por pozo: el modelo aprende en parte "cómo es cada pozo". Está documentado como limitación principal. 5.919 alertas en <code>gold.alerta_evento_pozo</code>.</p>
+
+<!-- 09 -->
+<h2 id="aws"><span class="n">09</span>AWS: estado y costos</h2>
+<div class="tw"><table>
+  <thead><tr><th>Máquina de estados</th><th>Pasos</th><th>Estado</th><th>Última corrida</th><th class="num">Costo</th></tr></thead>
+  <tbody>
+    <tr><td>produccion_pozo_mensual</td><td>ingest_landing → bronze_load → silver_load</td><td>validada, 21 años cargados</td><td>72 min</td><td class="num">~0,50 USD</td></tr>
+    <tr><td>fractura_diaria</td><td>ingest_landing → bronze_load → silver_load</td><td>validada</td><td>6 min</td><td class="num">0,06 USD</td></tr>
+    <tr><td>reservas_mensual</td><td>ingest_landing → bronze_reservas → silver_load</td><td>validada, 198.734 filas en Athena</td><td>6 min</td><td class="num">~0,05 USD</td></tr>
+    <tr><td>gold_mensual</td><td>gold_dbt (dbt build --target aws)</td><td>validada, 81 nodos PASS</td><td>80 s</td><td class="num">0,15 USD</td></tr>
+  </tbody>
+</table></div>
+<p>Gasto total acumulado en la cuenta desde su creación: alrededor de <strong>1 dólar</strong> de los 100 de crédito, casi todo en el backfill de producción. En reposo el costo es cero: no hay NAT Gateway, RDS, EMR ni MWAA, los cuatro schedules están deshabilitados y ningún job quedó corriendo. El plan gratuito termina alrededor de marzo de 2027; el README documenta las dos salidas: destruir y conservar el código, o pasar a plan pago por menos de un dólar al mes.</p>
+
+<!-- 10 -->
+<h2 id="verificado"><span class="n">10</span>Qué se verificó y qué no</h2>
+<ul class="checks">
+  <li><span class="b b-v">V</span> Idempotencia de ingesta, bronze, silver y streaming, medida con corridas repetidas y reinicios.</li>
+  <li><span class="b b-v">V</span> Mismos conteos y mismas claves surrogate en local y en AWS para las cuatro capas.</li>
+  <li><span class="b b-v">V</span> Reconciliación de petróleo 2024 entre silver y gold dentro de 1 m³.</li>
+  <li><span class="b b-v">V</span> Superconjunto DDJJ contra familia normal, comparado un año completo.</li>
+  <li><span class="b b-v">V</span> Frecuencia de 3W a 1 Hz, clave de fractura, layout de reservas 2020 a 2024.</li>
+  <li><span class="b b-p">P</span> El modelo de completación tiene 351 filas: intervalo de confianza ancho, folds de 0,04 a 0,38.</li>
+  <li><span class="b b-p">P</span> El clasificador aprende nivel más que tendencia; cae de 0,71 a 0,41 al validar por pozo.</li>
+  <li><span class="b b-x">límite</span> El mapeo de pozos 3W a pozos argentinos es ficticio; no hay telemetría pública argentina.</li>
+  <li><span class="b b-x">límite</span> El catálogo local en SQLite acepta un escritor: dos queries de streaming pueden pisarse.</li>
+  <li><span class="b b-x">límite</span> Los jobs de Glue no corren en paralelo entre pipelines: comparten ingest_landing y silver_load.</li>
+  <li><span class="b b-x">límite</span> Ambientes dev y prod definidos en código pero no aplicados; hoy hay un solo despliegue sin sufijo.</li>
+  <li><span class="b b-x">límite</span> Sin alertas externas: las fallas quedan en el log de Airflow, con un único punto para conectar correo o Slack.</li>
+  <li><span class="b b-x">límite</span> Monitoreo solo en local: sus modelos leen metadata de Iceberg con sintaxis de Spark.</li>
+  <li><span class="b b-x">límite</span> El CI no levanta el stack; la integración real se corre a mano en local.</li>
+</ul>
+
+<!-- 11 -->
+<h2 id="pendiente"><span class="n">11</span>Lo que queda y necesita que estés presente</h2>
+<p>Nada de esto se ejecutó: todo lo de AWS está en código y validado offline, esperando tu decisión.</p>
+<ol>
+  <li><strong>Migrar el despliegue actual de AWS a un ambiente con sufijo.</strong> Los 29 recursos se recrean porque en AWS el nombre es la identidad. Recomendación escrita en <code>infra/terraform/README.md</code>: respaldar <code>landing/</code> con <code>aws s3 sync</code> (unos 3 GB), crear el workspace prod, aplicar con <code>envs/prod.tfvars</code>, restaurar landing, cargar el parámetro SSM por ambiente y correr los cuatro pipelines de a uno. Una hora, menos de 2 USD.</li>
+  <li><strong>Levantar dev</strong> de cero: branch dev en Neon, parámetro SSM, workspace dev, aplicar, probar con fractura.</li>
+  <li><strong>Activar el despliegue continuo</strong>, solo si lo querés: aplicar <code>bootstrap/</code> (estado en S3 con bloqueo y rol OIDC), crear el Environment prod en GitHub con aprobación, cargar los ARN de los roles como variables y poner <code>DEPLOY_ENABLED=true</code>.</li>
+  <li><strong>Correr los DAGs nuevos</strong> en local con vos mirando: <code>eventos_pozo</code> no se disparó todavía.</li>
+  <li><strong>Decidir sobre el dashboard</strong> con las opciones de la sección siguiente.</li>
+</ol>
+
+<!-- 12 -->
+<h2 id="dashboard"><span class="n">12</span>Opciones para un dashboard visible por link</h2>
+<p>Hoy no hay nada que un reclutador pueda abrir sin instalar. Cuatro caminos, ordenados por lo que yo elegiría, todos gratis.</p>
+<div class="tw"><table>
+  <thead><tr><th>Opción</th><th>Cómo funciona</th><th>A favor</th><th>En contra</th><th>Esfuerzo</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1. Sitio estático en GitHub Pages con Evidence u Observable Framework</strong></td><td>Un job de CI exporta extractos de gold a Parquet o CSV chicos (agregados, no 18 M filas), Evidence los convierte en páginas con gráficos y SQL, y GitHub Pages los sirve.</td><td>Sin servidor, sin credenciales, sin costo, siempre encendido; el link vive en el repo; DuckDB en el navegador permite filtros.</td><td>No es tiempo real: se actualiza en cada push o corrida programada; hay que aprender una herramienta más.</td><td>una tarde</td></tr>
+    <tr><td><strong>2. Streamlit Community Cloud</strong></td><td>App Python leyendo extractos de gold publicados en un bucket S3 público chico o en el propio repo.</td><td>Es Python, lo entendés ya; interactivo; gratis.</td><td>La app duerme tras inactividad y tarda en despertar; depende de un servicio externo con cuenta; leer de S3 real implica una política pública en el bucket.</td><td>una tarde</td></tr>
+    <tr><td><strong>3. Databricks Free Edition con AI/BI Dashboards</strong></td><td>Un script sube el Parquet de gold a un Volume de Unity Catalog y un dashboard nativo lo muestra.</td><td>La palabra Databricks en el portfolio; dashboards vistosos y compartibles por link.</td><td>Uso no comercial y borrado por inactividad; el gold hay que empujarlo desde afuera; suma un tercer entorno que ya descartamos en el ADR 0001.</td><td>una tarde, más mantenimiento</td></tr>
+    <tr><td><strong>4. Grafana Cloud Free</strong></td><td>Métricas de salud del pipeline y de dq_runs enviadas a Grafana; dashboards operativos públicos.</td><td>Es la herramienta de observabilidad estándar; encaja con salud_pipeline y con alertas.</td><td>Sirve para métricas operativas, no para explorar datos de negocio; el envío de métricas necesita un agente o un job.</td><td>media tarde</td></tr>
+  </tbody>
+</table></div>
+<p>Mi recomendación: la opción 1 para el dashboard de negocio (producción por cuenca, etapas contra producción, reservas de YPF, predicciones) y, si sobra tiempo, la 4 para lo operativo. La 2 es el atajo si preferís no aprender otra herramienta. La 3 la haría solo si querés Databricks en el CV.</p>
+
+<!-- 13 -->
+<h2 id="estudio"><span class="n">13</span>Plan de estudio</h2>
+<p>El recorrido guiado en <code>docs/aprendizaje/recorrido-del-codigo.md</code> tiene ahora 12 sesiones y 17.000 palabras. Cada una dice qué leer, qué correr y qué tenés que poder explicar al terminar. Orden sugerido, una sesión por día:</p>
+<ol class="timeline">
+  <li><span class="w">Sesión 1</span><span>El mapa: carpetas, flujo, puntos de entrada, cómo viaja la configuración.</span></li>
+  <li><span class="w">Sesión 2</span><span>La ingesta como hilo de ejecución: <code>runner.py</code> función por función, idempotencia, streaming a S3.</span></li>
+  <li><span class="w">Sesión 3</span><span>Bronze: SparkSession, catálogo Iceberg, por qué todo string, linaje.</span></li>
+  <li><span class="w">Sesión 4</span><span>Silver y contratos: cómo un YAML se convierte en casts y validaciones, cuarentena, dq_runs.</span></li>
+  <li><span class="w">Sesión 9</span><span>Reservas: el parser de XLSX y pyiceberg sin Spark. Va antes que gold porque es la pieza de ingeniería más concreta.</span></li>
+  <li><span class="w">Sesión 10</span><span>Gold con dbt: ref y source, dim_pozo CTE por CTE, join por rango, tests, macros de dialecto.</span></li>
+  <li><span class="w">Sesión 5</span><span>Orquestación local: Compose servicio por servicio, DockerOperator, los siete DAGs.</span></li>
+  <li><span class="w">Sesión 11</span><span>Streaming: Kafka en dos frases, productor, consumidor, watermark, checkpoint, el experimento de reinicio.</span></li>
+  <li><span class="w">Sesión 12</span><span>ML y monitoreo: datos, GroupKFold, SHAP, MLflow, inferencia batch, salud del pipeline.</span></li>
+  <li><span class="w">Sesión 6</span><span>AWS: cada archivo de Terraform, los wrappers de Glue, la máquina de estados, ambientes.</span></li>
+  <li><span class="w">Sesión 7</span><span>Tests y CI: Moto, reglas puras, los tres jobs del workflow.</span></li>
+  <li><span class="w">Sesión 8</span><span>Las decisiones: los 14 ADR en una tabla y 15 preguntas de entrevista con respuesta.</span></li>
+</ol>
+<p>Complemento: <code>docs/aprendizaje/aws-azure-databricks.md</code>, la guía de servicios con precios citados de la documentación oficial, para leer con la consola de AWS abierta.</p>
+
+<!-- 14 -->
+<h2 id="cronologia"><span class="n">14</span>Cronología</h2>
+<ol class="timeline">
+  <li><span class="w">4 sep</span><span>Deep research con 48 agentes: problemas de datos de YPF, datasets, límites de AWS y Databricks. 10 afirmaciones refutadas. Artefacto de opciones de proyecto.</span></li>
+  <li><span class="w">5 sep, mañana</span><span>Semana 0 de de-risking contra las fuentes reales. Podman con 10 GB, perfil core, conector CKAN con manifiesto, bronze, silver con contratos.</span></li>
+  <li><span class="w">5 sep, tarde</span><span>Airflow que lanza contenedores, CI, repo en GitHub con tu identidad, cuenta AWS, Terraform, Glue, Step Functions, Athena, Neon. Guía de AWS.</span></li>
+  <li><span class="w">5 sep, noche</span><span>Fractura y reservas hasta silver en local y AWS. Gold con dbt: SCD2, hechos, mart, 84 tests. Hallazgo de las 7 veces.</span></li>
+  <li><span class="w">6 sep, madrugada</span><span>Streaming con Kafka y watermark. Reservas y gold en AWS. Modelo de completación con MLflow. Observabilidad y README final.</span></li>
+  <li><span class="w">6 sep, mañana</span><span>Cuatro ramas en worktrees: clasificador de eventos, comparación de familias y fichas, ambientes dev y prod en código, recorrido ampliado. Este informe.</span></li>
+</ol>
+
+<!-- 15 -->
+<h2 id="docs"><span class="n">15</span>Documentación en el repo</h2>
+<div class="tw"><table>
+  <thead><tr><th>Dónde</th><th>Qué</th></tr></thead>
+  <tbody>
+    <tr><td><code>README.md</code></td><td>Puerta de entrada: arquitectura, fuentes, trazabilidad, cómo correrlo, resultados, límites, licencias.</td></tr>
+    <tr><td><code>docs/adr/0001</code> a <code>0014</code></td><td>Una decisión por archivo, con alternativa y consecuencias.</td></tr>
+    <tr><td><code>docs/fuentes/</code></td><td>Seis fichas: producción, padrón, fractura, reservas, telemetría 3W y la comparación de familias.</td></tr>
+    <tr><td><code>docs/ml/</code></td><td>Los dos modelos: datos, evaluación, SHAP, limitaciones.</td></tr>
+    <tr><td><code>docs/aprendizaje/</code></td><td>Recorrido del código en 12 sesiones y guía de AWS, Azure y Databricks.</td></tr>
+    <tr><td><code>docs/semana-0-derisking.md</code></td><td>Las pruebas contra las fuentes reales antes de escribir infraestructura.</td></tr>
+    <tr><td><code>research/</code></td><td>Los 12 informes del deep research original con sus fuentes.</td></tr>
+    <tr><td><code>infra/terraform/README.md</code></td><td>Despliegue, migración a ambientes, destruir y reconstruir, consultas de verificación.</td></tr>
+    <tr><td><code>orchestration/README.md</code></td><td>Cómo levantar Airflow, disparar DAGs, ver logs, conectar alertas.</td></tr>
+  </tbody>
+</table></div>
+<p class="small">Tamaño del proyecto: unas 11.800 líneas de Python, SQL, YAML y scripts, y 1.450 de Terraform y Compose, escritas para que las lea una persona.</p>
+</main>
+</div>
+</body>
+</html>
